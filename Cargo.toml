@@ -7,4 +7,5 @@ edition = "2021"
 
 [dependencies]
 ndarray = "^0.15"
+# num-traits = "0.2.15"
 rand = "^0.8"

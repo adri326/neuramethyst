@@ -1,4 +1,4 @@
-use crate::{layer::NeuraLayer, train::NeuraTrainable};
+use crate::{layer::NeuraLayer, train::{NeuraTrainable, NeuraTrainableLayer}, derivable::NeuraLoss};
 
 pub struct NeuraNetwork<Layer: NeuraLayer, ChildNetwork> {
     layer: Layer,
@@ -22,6 +22,10 @@ impl<Layer: NeuraLayer, ChildNetwork> NeuraNetwork<Layer, ChildNetwork> {
 
     pub fn child_network(&self) -> &ChildNetwork {
         &self.child_network
+    }
+
+    pub fn layer(&self) -> &Layer {
+        &self.layer
     }
 }
 
@@ -52,6 +56,28 @@ impl<Layer: NeuraLayer, ChildNetwork: NeuraLayer<Input = Layer::Output>> NeuraLa
 
     fn eval(&self, input: &Self::Input) -> Self::Output {
         self.child_network.eval(&self.layer.eval(input))
+    }
+}
+
+impl<Layer: NeuraTrainableLayer> NeuraTrainable for NeuraNetwork<Layer, ()> {
+    type Delta = Layer::Delta;
+
+    fn backpropagate<Loss: NeuraLoss<Self::Output>>(&self, input: &Self::Input, target: Loss::Target, loss: Loss) -> (Self::Input, Self::Delta) {
+        let final_activation = self.layer.eval(input);
+        let backprop_epsilon = loss.nabla(target, final_activation);
+        self.layer.backpropagate(&input, backprop_epsilon)
+    }
+}
+
+impl<Layer: NeuraTrainableLayer, ChildNetwork: NeuraTrainable<Input = Layer::Output>> NeuraTrainable for NeuraNetwork<Layer, ChildNetwork> {
+    type Delta = (Layer::Delta, ChildNetwork::Delta);
+
+    fn backpropagate<Loss: NeuraLoss<Self::Output>>(&self, input: &Self::Input, target: Loss::Target, loss: Loss) -> (Self::Input, Self::Delta) {
+        let next_activation = self.layer.eval(input);
+        let (backprop_gradient, weights_gradient) = self.child_network.backpropagate(&next_activation, target, loss);
+        let (backprop_gradient, layer_gradient) = self.layer.backpropagate(input, backprop_gradient);
+
+        (backprop_gradient, (layer_gradient, weights_gradient))
     }
 }
 

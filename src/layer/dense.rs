@@ -1,5 +1,5 @@
 use super::NeuraLayer;
-use crate::{derivable::NeuraDerivable, utils::multiply_matrix_vector};
+use crate::{derivable::NeuraDerivable, utils::{multiply_matrix_vector, reverse_dot_product, multiply_matrix_transpose_vector}, train::NeuraTrainableLayer};
 use rand::Rng;
 
 pub struct NeuraDenseLayer<
@@ -62,6 +62,31 @@ impl<Act: NeuraDerivable<f64>, const INPUT_LEN: usize, const OUTPUT_LEN: usize> 
         }
 
         result
+    }
+}
+
+impl<Act: NeuraDerivable<f64>, const INPUT_LEN: usize, const OUTPUT_LEN: usize> NeuraTrainableLayer
+    for NeuraDenseLayer<Act, INPUT_LEN, OUTPUT_LEN>
+{
+    type Delta = ([[f64; INPUT_LEN]; OUTPUT_LEN], [f64; OUTPUT_LEN]);
+
+    // TODO: double-check the math in this
+    fn backpropagate(&self, input: &Self::Input, epsilon: Self::Output) -> (Self::Input, Self::Delta) {
+        let evaluated = multiply_matrix_vector(&self.weights, input);
+        // Compute delta from epsilon, with `self.activation'(z) * epsilon = delta`
+        let mut delta = epsilon.clone();
+        for i in 0..OUTPUT_LEN {
+            delta[i] = self.activation.derivate(evaluated[i]);
+        }
+
+        let weights_gradient = reverse_dot_product(&delta, input);
+        // According to https://datascience.stackexchange.com/questions/20139/gradients-for-bias-terms-in-backpropagation
+        // The gradient of the bias is equal to the delta term of the backpropagation algorithm
+        let bias_gradient = delta;
+
+        let new_epsilon = multiply_matrix_transpose_vector(&self.weights, &delta);
+
+        (new_epsilon, (weights_gradient, bias_gradient))
     }
 }
 
