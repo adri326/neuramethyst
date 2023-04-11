@@ -1,14 +1,18 @@
 use super::NeuraLayer;
-use crate::{activation::Activation, utils::multiply_matrix_vector};
+use crate::{derivable::NeuraDerivable, utils::multiply_matrix_vector};
 use rand::Rng;
 
-pub struct NeuraDenseLayer<Act: Activation, const INPUT_LEN: usize, const OUTPUT_LEN: usize> {
+pub struct NeuraDenseLayer<
+    Act: NeuraDerivable<f64>,
+    const INPUT_LEN: usize,
+    const OUTPUT_LEN: usize,
+> {
     weights: [[f64; INPUT_LEN]; OUTPUT_LEN],
     bias: [f64; OUTPUT_LEN],
     activation: Act,
 }
 
-impl<Act: Activation, const INPUT_LEN: usize, const OUTPUT_LEN: usize>
+impl<Act: NeuraDerivable<f64>, const INPUT_LEN: usize, const OUTPUT_LEN: usize>
     NeuraDenseLayer<Act, INPUT_LEN, OUTPUT_LEN>
 {
     pub fn new(
@@ -43,7 +47,7 @@ impl<Act: Activation, const INPUT_LEN: usize, const OUTPUT_LEN: usize>
     }
 }
 
-impl<Act: Activation, const INPUT_LEN: usize, const OUTPUT_LEN: usize> NeuraLayer
+impl<Act: NeuraDerivable<f64>, const INPUT_LEN: usize, const OUTPUT_LEN: usize> NeuraLayer
     for NeuraDenseLayer<Act, INPUT_LEN, OUTPUT_LEN>
 {
     type Input = [f64; INPUT_LEN];
@@ -64,7 +68,7 @@ impl<Act: Activation, const INPUT_LEN: usize, const OUTPUT_LEN: usize> NeuraLaye
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::activation::Relu;
+    use crate::derivable::activation::Relu;
 
     #[test]
     fn test_from_rng() {
