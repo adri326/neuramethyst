@@ -36,6 +36,50 @@ impl NeuraDerivable<f32> for Relu {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
+pub struct LeakyRelu(pub f64);
+
+
+impl NeuraDerivable<f64> for LeakyRelu {
+    #[inline(always)]
+    fn eval(&self, input: f64) -> f64 {
+        if input > 0.0 {
+            input
+        } else {
+            self.0 * input
+        }
+    }
+
+    #[inline(always)]
+    fn derivate(&self, input: f64) -> f64 {
+        if input > 0.0 {
+            1.0
+        } else {
+            self.0
+        }
+    }
+}
+
+impl NeuraDerivable<f32> for LeakyRelu {
+    #[inline(always)]
+    fn eval(&self, input: f32) -> f32 {
+        if input > 0.0 {
+            input
+        } else {
+            (self.0 as f32) * input
+        }
+    }
+
+    #[inline(always)]
+    fn derivate(&self, input: f32) -> f32 {
+        if input > 0.0 {
+            1.0
+        } else {
+            self.0 as f32
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Tanh;
 
 impl NeuraDerivable<f64> for Tanh {
@@ -61,5 +105,32 @@ impl NeuraDerivable<f32> for Tanh {
     fn derivate(&self, at: f32) -> f32 {
         let tanh = at.tanh();
         0.5 * (1.0 - tanh * tanh)
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Linear;
+
+impl NeuraDerivable<f64> for Linear {
+    #[inline(always)]
+    fn eval(&self, input: f64) -> f64 {
+        input
+    }
+
+    #[inline(always)]
+    fn derivate(&self, _at: f64) -> f64 {
+        1.0
+    }
+}
+
+impl NeuraDerivable<f32> for Linear {
+    #[inline(always)]
+    fn eval(&self, input: f32) -> f32 {
+        input
+    }
+
+    #[inline(always)]
+    fn derivate(&self, _at: f32) -> f32 {
+        1.0
     }
 }

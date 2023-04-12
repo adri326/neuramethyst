@@ -3,7 +3,7 @@ use crate::{
     algebra::NeuraVectorSpace,
     derivable::NeuraLoss,
     layer::NeuraLayer,
-    network::NeuraNetwork,
+    network::NeuraNetwork, utils::cycle_shuffling,
 };
 
 pub trait NeuraTrainableLayer: NeuraLayer {
@@ -44,7 +44,7 @@ pub trait NeuraTrainable: NeuraLayer {
     ) -> (Self::Input, Self::Delta);
 }
 
-pub trait NeuraTrainer<Output, Target = Output> {
+pub trait NeuraGradientSolver<Output, Target = Output> {
     fn get_gradient<Layer: NeuraLayer, ChildNetwork>(
         &self,
         trainable: &NeuraNetwork<Layer, ChildNetwork>,
@@ -75,7 +75,7 @@ impl<Loss: NeuraLoss + Clone> NeuraBackprop<Loss> {
     }
 }
 
-impl<const N: usize, Loss: NeuraLoss<Input = [f64; N]> + Clone> NeuraTrainer<[f64; N], Loss::Target>
+impl<const N: usize, Loss: NeuraLoss<Input = [f64; N]> + Clone> NeuraGradientSolver<[f64; N], Loss::Target>
     for NeuraBackprop<Loss>
 {
     fn get_gradient<Layer: NeuraLayer, ChildNetwork>(
@@ -103,49 +103,137 @@ impl<const N: usize, Loss: NeuraLoss<Input = [f64; N]> + Clone> NeuraTrainer<[f6
     }
 }
 
-pub fn train_batched<
-    Output,
-    Target,
-    Trainer: NeuraTrainer<Output, Target>,
-    Layer: NeuraLayer,
-    ChildNetwork,
-    Inputs: IntoIterator<Item = (Layer::Input, Target)>,
->(
-    network: &mut NeuraNetwork<Layer, ChildNetwork>,
-    inputs: Inputs,
-    test_inputs: &[(Layer::Input, Target)],
-    trainer: Trainer,
-    learning_rate: f64,
-    batch_size: usize,
-    epochs: usize,
-) where
-    NeuraNetwork<Layer, ChildNetwork>: NeuraTrainable<Input = Layer::Input, Output = Output>,
-    Inputs::IntoIter: Clone,
-{
-    // TODO: apply shuffling?
-    let mut iter = inputs.into_iter().cycle();
-    let factor = -learning_rate / (batch_size as f64);
+#[non_exhaustive]
+pub struct NeuraBatchedTrainer {
+    /// The learning rate of the gradient descent algorithm; the weights `W` will be updated as follows:
+    /// `W += -learning_rate * gradient_average`.
+    ///
+    /// Defaults to `0.1`
+    pub learning_rate: f64,
 
-    'd: for epoch in 0..epochs {
-        let mut gradient_sum = <NeuraNetwork<Layer, ChildNetwork> as NeuraTrainable>::Delta::zero();
+    /// The momentum of the gradient descent algorithm; if set to a non-zero value, then the weights `W` will be updated as follows:
+    /// `W += -learning_rate * gradient_average - learning_momentum * previous_gradient`.
+    /// This value should be smaller than `learning_rate`.
+    ///
+    /// Defaults to `0.0`
+    pub learning_momentum: f64,
 
-        for _ in 0..batch_size {
-            if let Some((input, target)) = iter.next() {
-                let gradient = trainer.get_gradient(&network, &input, &target);
-                gradient_sum.add_assign(&gradient);
-            } else {
-                break 'd;
+    /// How many gradient computations to average before updating the weights
+    pub batch_size: usize,
+
+    /// How many batches to run for; if `epochs * batch_size` exceeds the input length, then training will stop.
+    /// You should use `cycle_shuffling` from the `prelude` module to avoid this.
+    pub epochs: usize,
+
+    /// The trainer will log progress at every multiple of `log_epochs` steps.
+    /// If `log_epochs` is zero (default), then no progress will be logged.
+    ///
+    /// The test inputs is used to measure the score of the network.
+    pub log_epochs: usize,
+}
+
+impl Default for NeuraBatchedTrainer {
+    fn default() -> Self {
+        Self {
+            learning_rate: 0.1,
+            learning_momentum: 0.0,
+            batch_size: 100,
+            epochs: 100,
+            log_epochs: 0,
+        }
+    }
+}
+
+impl NeuraBatchedTrainer {
+    pub fn new(learning_rate: f64, epochs: usize) -> Self {
+        Self {
+            learning_rate,
+            epochs,
+            ..Default::default()
+        }
+    }
+
+    pub fn train<
+        Output,
+        Target: Clone,
+        GradientSolver: NeuraGradientSolver<Output, Target>,
+        Layer: NeuraLayer,
+        ChildNetwork,
+        Inputs: IntoIterator<Item = (Layer::Input, Target)>,
+    >(
+        &self,
+        gradient_solver: GradientSolver,
+        network: &mut NeuraNetwork<Layer, ChildNetwork>,
+        inputs: Inputs,
+        test_inputs: &[(Layer::Input, Target)],
+    ) where
+        NeuraNetwork<Layer, ChildNetwork>: NeuraTrainable<Input = Layer::Input, Output = Output>,
+        Layer::Input: Clone,
+    {
+        // TODO: apply shuffling?
+        let mut iter = inputs.into_iter();
+        let factor = -self.learning_rate / (self.batch_size as f64);
+        let momentum_factor = self.learning_momentum / self.learning_rate;
+
+        // Contains `momentum_factor * factor * gradient_sum_previous_iter`
+        let mut previous_gradient_sum = <NeuraNetwork<Layer, ChildNetwork> as NeuraTrainable>::Delta::zero();
+        'd: for epoch in 0..self.epochs {
+            let mut gradient_sum = <NeuraNetwork<Layer, ChildNetwork> as NeuraTrainable>::Delta::zero();
+
+            for _ in 0..self.batch_size {
+                if let Some((input, target)) = iter.next() {
+                    let gradient = gradient_solver.get_gradient(&network, &input, &target);
+                    gradient_sum.add_assign(&gradient);
+                } else {
+                    break 'd;
+                }
+            }
+
+            gradient_sum.mul_assign(factor);
+            network.apply_gradient(&gradient_sum);
+
+            if self.learning_momentum != 0.0 {
+                network.apply_gradient(&previous_gradient_sum);
+                previous_gradient_sum = gradient_sum;
+                previous_gradient_sum.mul_assign(momentum_factor);
+            }
+
+            if self.log_epochs > 0 && (epoch + 1) % self.log_epochs == 0 {
+                let mut loss_sum = 0.0;
+                for (input, target) in test_inputs {
+                    loss_sum += gradient_solver.score(&network, input, target);
+                }
+                loss_sum /= test_inputs.len() as f64;
+                println!("Epoch {}, Loss: {:.3}", epoch + 1, loss_sum);
             }
         }
+    }
+}
 
-        gradient_sum.mul_assign(factor);
-        network.apply_gradient(&gradient_sum);
+#[cfg(test)]
+mod test {
+    use crate::{layer::NeuraDenseLayer, derivable::{activation::Linear, loss::Euclidean}};
+    use super::*;
 
-        let mut loss_sum = 0.0;
-        for (input, target) in test_inputs {
-            loss_sum += trainer.score(&network, input, target);
+    #[test]
+    fn test_backpropagation_simple() {
+        for wa in [0.0, 0.25, 0.5, 1.0] {
+            for wb in [0.0, 0.25, 0.5, 1.0] {
+                let network = NeuraNetwork::new(
+                    NeuraDenseLayer::new([[wa, wb]], [0.0], Linear),
+                    ()
+                );
+
+                let gradient = NeuraBackprop::new(Euclidean).get_gradient(
+                    &network,
+                    &[1.0, 1.0],
+                    &[0.0]
+                );
+
+                let expected = wa + wb;
+                assert!((gradient.0[0][0] - expected) < 0.001);
+                assert!((gradient.0[0][1] - expected) < 0.001);
+            }
         }
-        loss_sum /= test_inputs.len() as f64;
-        println!("Epoch {epoch}, Loss: {:.3}", loss_sum);
     }
 }

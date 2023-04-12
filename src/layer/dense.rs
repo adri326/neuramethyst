@@ -35,7 +35,7 @@ impl<Act: NeuraDerivable<f64>, const INPUT_LEN: usize, const OUTPUT_LEN: usize>
 
         for i in 0..OUTPUT_LEN {
             for j in 0..INPUT_LEN {
-                weights[i][j] = rng.gen_range(-multiplier..multiplier);
+                weights[i][j] = rng.gen_range(0.0..multiplier);
             }
         }
 
@@ -74,10 +74,10 @@ impl<Act: NeuraDerivable<f64>, const INPUT_LEN: usize, const OUTPUT_LEN: usize> 
     // TODO: double-check the math in this
     fn backpropagate(&self, input: &Self::Input, epsilon: Self::Output) -> (Self::Input, Self::Delta) {
         let evaluated = multiply_matrix_vector(&self.weights, input);
-        // Compute delta from epsilon, with `self.activation'(z) * epsilon = delta`
+        // Compute delta from epsilon, with `self.activation'(input) ° epsilon = delta`
         let mut delta = epsilon.clone();
         for i in 0..OUTPUT_LEN {
-            delta[i] = self.activation.derivate(evaluated[i]);
+            delta[i] *= self.activation.derivate(evaluated[i]);
         }
 
         let weights_gradient = reverse_dot_product(&delta, input);

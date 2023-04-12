@@ -13,7 +13,8 @@ pub mod prelude {
     pub use crate::{neura_network, neura_layer};
 
     // Structs and traits
-    pub use super::network::{NeuraNetwork};
-    pub use super::layer::{NeuraLayer, NeuraDenseLayer};
-    pub use super::train::{NeuraBackprop, train_batched};
+    pub use crate::network::{NeuraNetwork};
+    pub use crate::layer::{NeuraLayer, NeuraDenseLayer};
+    pub use crate::train::{NeuraBackprop, NeuraBatchedTrainer};
+    pub use crate::utils::cycle_shuffling;
 }

@@ -54,36 +54,91 @@ pub(crate) fn assign_add_vector<const N: usize>(sum: &mut [f64; N], operand: &[f
     }
 }
 
+struct Chunked<J: Iterator> {
+    iter: J,
+    chunk_size: usize,
+}
+
+impl<J: Iterator> Iterator for Chunked<J> {
+    type Item = Vec<J::Item>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut result = Vec::with_capacity(self.chunk_size);
+
+        for _ in 0..self.chunk_size {
+            if let Some(item) = self.iter.next() {
+                result.push(item);
+            } else {
+                break;
+            }
+        }
+
+        if result.len() > 0 {
+            Some(result)
+        } else {
+            None
+        }
+    }
+}
+
 pub(crate) fn chunked<I: Iterator>(
     iter: I,
     chunk_size: usize,
 ) -> impl Iterator<Item = Vec<I::Item>> {
-    struct Chunked<J: Iterator> {
-        iter: J,
-        chunk_size: usize,
-    }
+    Chunked { iter, chunk_size }
+}
 
-    impl<J: Iterator> Iterator for Chunked<J> {
-        type Item = Vec<J::Item>;
 
-        fn next(&mut self) -> Option<Self::Item> {
-            let mut result = Vec::with_capacity(self.chunk_size);
+struct ShuffleCycled<I: Iterator, R: rand::Rng> {
+    buffer: Vec<I::Item>,
+    index: usize,
+    iter: I,
+    rng: R,
+}
 
-            for _ in 0..self.chunk_size {
-                if let Some(item) = self.iter.next() {
-                    result.push(item);
-                } else {
-                    break;
-                }
-            }
+impl<I: Iterator, R: rand::Rng> Iterator for ShuffleCycled<I, R> where I::Item: Clone {
+    type Item = I::Item;
 
-            if result.len() > 0 {
-                Some(result)
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        use rand::prelude::SliceRandom;
+
+        if let Some(next) = self.iter.next() {
+            // Base iterator is not empty yet
+            self.buffer.push(next.clone());
+            return Some(next)
+        } else if self.buffer.len() > 0 {
+            if self.index == 0 {
+                // Shuffle the vector and return the first element, setting the index to 1
+                self.buffer.shuffle(&mut self.rng);
+                self.index = 1;
+                Some(self.buffer[0].clone())
             } else {
-                None
+                // Keep consuming the shuffled vector
+                let res = self.buffer[self.index].clone();
+                self.index = (self.index + 1) % self.buffer.len();
+                Some(res)
             }
+        } else {
+            None
         }
     }
+}
 
-    Chunked { iter, chunk_size }
+pub fn cycle_shuffling<I: Iterator>(
+    iter: I,
+    rng: impl rand::Rng
+) -> impl Iterator<Item=I::Item>
+where
+    I::Item: Clone
+{
+    let size_hint = iter.size_hint();
+    let size_hint = size_hint.1.unwrap_or(size_hint.0).max(1);
+
+    ShuffleCycled {
+        buffer: Vec::with_capacity(size_hint),
+        index: 0,
+        iter,
+        rng
+    }
 }

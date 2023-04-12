@@ -1,13 +1,13 @@
 #![feature(generic_arg_infer)]
 
 use neuramethyst::prelude::*;
-use neuramethyst::derivable::activation::{Relu, Tanh};
+use neuramethyst::derivable::activation::{Relu};
 use neuramethyst::derivable::loss::Euclidean;
 
 fn main() {
     let mut network = neura_network![
-        neura_layer!("dense", Tanh, 2, 2),
-        neura_layer!("dense", Tanh, 3),
+        neura_layer!("dense", Relu, 4, 2),
+        neura_layer!("dense", Relu, 3),
         neura_layer!("dense", Relu, 1)
     ];
 
@@ -18,25 +18,23 @@ fn main() {
         ([1.0, 1.0], [0.0])
     ];
 
-    // println!("{:#?}", network);
-
     for (input, target) in inputs {
-        println!("Input: {:?}, target: {}, actual: {}", &input, target[0], network.eval(&input)[0]);
+        println!("Input: {:?}, target: {}, actual: {:.3}", &input, target[0], network.eval(&input)[0]);
     }
 
-    train_batched(
-        &mut network,
-        inputs.clone(),
-        &inputs,
+    let mut trainer = NeuraBatchedTrainer::new(0.05, 1000);
+    trainer.batch_size = 6;
+    trainer.log_epochs = 250;
+    trainer.learning_momentum = 0.01;
+
+    trainer.train(
         NeuraBackprop::new(Euclidean),
-        0.01,
-        1,
-        25
+        &mut network,
+        cycle_shuffling(inputs.iter().cloned(), rand::thread_rng()),
+        &inputs,
     );
 
-    // println!("{:#?}", network);
-
     for (input, target) in inputs {
-        println!("Input: {:?}, target: {}, actual: {}", &input, target[0], network.eval(&input)[0]);
+        println!("Input: {:?}, target: {}, actual: {:.3}", &input, target[0], network.eval(&input)[0]);
     }
 }
