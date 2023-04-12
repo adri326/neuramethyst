@@ -8,13 +8,13 @@ pub trait NeuraDerivable<F> {
     fn derivate(&self, at: F) -> F;
 }
 
-pub trait NeuraLoss<F> {
-    type Out;
+pub trait NeuraLoss {
+    type Input;
     type Target;
 
-    fn eval(&self, target: Self::Target, actual: F) -> Self::Out;
+    fn eval(&self, target: &Self::Target, actual: &Self::Input) -> f64;
 
     /// Should return the gradient of the loss function according to `actual`
     /// ($\nabla_{\texttt{actual}} \texttt{self.eval}(\texttt{target}, \texttt{actual})$).
-    fn nabla(&self, target: Self::Target, actual: F) -> F;
+    fn nabla(&self, target: &Self::Target, actual: &Self::Input) -> Self::Input;
 }

@@ -1,5 +1,10 @@
-use crate::{layer::NeuraLayer, train::{NeuraTrainable, NeuraTrainableLayer}, derivable::NeuraLoss};
+use crate::{
+    derivable::NeuraLoss,
+    layer::NeuraLayer,
+    train::{NeuraTrainable, NeuraTrainableLayer},
+};
 
+#[derive(Clone, Debug)]
 pub struct NeuraNetwork<Layer: NeuraLayer, ChildNetwork> {
     layer: Layer,
     child_network: ChildNetwork,
@@ -62,20 +67,44 @@ impl<Layer: NeuraLayer, ChildNetwork: NeuraLayer<Input = Layer::Output>> NeuraLa
 impl<Layer: NeuraTrainableLayer> NeuraTrainable for NeuraNetwork<Layer, ()> {
     type Delta = Layer::Delta;
 
-    fn backpropagate<Loss: NeuraLoss<Self::Output>>(&self, input: &Self::Input, target: Loss::Target, loss: Loss) -> (Self::Input, Self::Delta) {
+    fn apply_gradient(&mut self, gradient: &Self::Delta) {
+        self.layer.apply_gradient(gradient);
+    }
+
+    fn backpropagate<Loss: NeuraLoss<Input = Self::Output>>(
+        &self,
+        input: &Self::Input,
+        target: &Loss::Target,
+        loss: Loss,
+    ) -> (Self::Input, Self::Delta) {
         let final_activation = self.layer.eval(input);
-        let backprop_epsilon = loss.nabla(target, final_activation);
+        let backprop_epsilon = loss.nabla(target, &final_activation);
         self.layer.backpropagate(&input, backprop_epsilon)
     }
 }
 
-impl<Layer: NeuraTrainableLayer, ChildNetwork: NeuraTrainable<Input = Layer::Output>> NeuraTrainable for NeuraNetwork<Layer, ChildNetwork> {
+impl<Layer: NeuraTrainableLayer, ChildNetwork: NeuraTrainable<Input = Layer::Output>> NeuraTrainable
+    for NeuraNetwork<Layer, ChildNetwork>
+{
     type Delta = (Layer::Delta, ChildNetwork::Delta);
 
-    fn backpropagate<Loss: NeuraLoss<Self::Output>>(&self, input: &Self::Input, target: Loss::Target, loss: Loss) -> (Self::Input, Self::Delta) {
+    fn apply_gradient(&mut self, gradient: &Self::Delta) {
+        self.layer.apply_gradient(&gradient.0);
+        self.child_network.apply_gradient(&gradient.1);
+    }
+
+    fn backpropagate<Loss: NeuraLoss<Input = Self::Output>>(
+        &self,
+        input: &Self::Input,
+        target: &Loss::Target,
+        loss: Loss,
+    ) -> (Self::Input, Self::Delta) {
         let next_activation = self.layer.eval(input);
-        let (backprop_gradient, weights_gradient) = self.child_network.backpropagate(&next_activation, target, loss);
-        let (backprop_gradient, layer_gradient) = self.layer.backpropagate(input, backprop_gradient);
+        let (backprop_gradient, weights_gradient) =
+            self.child_network
+                .backpropagate(&next_activation, target, loss);
+        let (backprop_gradient, layer_gradient) =
+            self.layer.backpropagate(input, backprop_gradient);
 
         (backprop_gradient, (layer_gradient, weights_gradient))
     }

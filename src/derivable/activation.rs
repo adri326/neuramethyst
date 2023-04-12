@@ -34,3 +34,32 @@ impl NeuraDerivable<f32> for Relu {
         }
     }
 }
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Tanh;
+
+impl NeuraDerivable<f64> for Tanh {
+    #[inline(always)]
+    fn eval(&self, input: f64) -> f64 {
+        0.5 * input.tanh() + 0.5
+    }
+
+    #[inline(always)]
+    fn derivate(&self, at: f64) -> f64 {
+        let tanh = at.tanh();
+        0.5 * (1.0 - tanh * tanh)
+    }
+}
+
+impl NeuraDerivable<f32> for Tanh {
+    #[inline(always)]
+    fn eval(&self, input: f32) -> f32 {
+        0.5 * input.tanh() + 0.5
+    }
+
+    #[inline(always)]
+    fn derivate(&self, at: f32) -> f32 {
+        let tanh = at.tanh();
+        0.5 * (1.0 - tanh * tanh)
+    }
+}

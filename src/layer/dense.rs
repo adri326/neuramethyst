@@ -1,7 +1,8 @@
 use super::NeuraLayer;
-use crate::{derivable::NeuraDerivable, utils::{multiply_matrix_vector, reverse_dot_product, multiply_matrix_transpose_vector}, train::NeuraTrainableLayer};
+use crate::{derivable::NeuraDerivable, utils::{multiply_matrix_vector, reverse_dot_product, multiply_matrix_transpose_vector}, train::NeuraTrainableLayer, algebra::NeuraVectorSpace};
 use rand::Rng;
 
+#[derive(Clone, Debug)]
 pub struct NeuraDenseLayer<
     Act: NeuraDerivable<f64>,
     const INPUT_LEN: usize,
@@ -34,7 +35,7 @@ impl<Act: NeuraDerivable<f64>, const INPUT_LEN: usize, const OUTPUT_LEN: usize>
 
         for i in 0..OUTPUT_LEN {
             for j in 0..INPUT_LEN {
-                weights[i][j] = rng.gen::<f64>() * multiplier;
+                weights[i][j] = rng.gen_range(-multiplier..multiplier);
             }
         }
 
@@ -87,6 +88,11 @@ impl<Act: NeuraDerivable<f64>, const INPUT_LEN: usize, const OUTPUT_LEN: usize> 
         let new_epsilon = multiply_matrix_transpose_vector(&self.weights, &delta);
 
         (new_epsilon, (weights_gradient, bias_gradient))
+    }
+
+    fn apply_gradient(&mut self, gradient: &Self::Delta) {
+        NeuraVectorSpace::add_assign(&mut self.weights, &gradient.0);
+        NeuraVectorSpace::add_assign(&mut self.bias, &gradient.1);
     }
 }
 

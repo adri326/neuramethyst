@@ -35,7 +35,7 @@ pub(crate) fn multiply_matrix_transpose_vector<const WIDTH: usize, const HEIGHT:
 
 pub(crate) fn reverse_dot_product<const WIDTH: usize, const HEIGHT: usize>(
     left: &[f64; HEIGHT],
-    right: &[f64; WIDTH]
+    right: &[f64; WIDTH],
 ) -> [[f64; WIDTH]; HEIGHT] {
     let mut result = [[0.0; WIDTH]; HEIGHT];
 
