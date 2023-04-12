@@ -10,10 +10,16 @@ use rand::Rng;
 
 fn main() {
     let mut network = neura_network![
-        neura_layer!("dense", LeakyRelu(0.01), 4, 2),
-        neura_layer!("dense", Tanh, 3),
-        neura_layer!("dense", Relu, 2)
+        neura_layer!("dense", LeakyRelu(0.01), 9, 2),
+        neura_layer!("dropout", 0.1),
+        neura_layer!("dense", LeakyRelu(0.01), 9),
+        neura_layer!("dropout", 0.3),
+        neura_layer!("dense", LeakyRelu(0.01), 6),
+        neura_layer!("dropout", 0.1),
+        neura_layer!("dense", LeakyRelu(0.01), 4),
+        neura_layer!("dense", LeakyRelu(0.1), 2)
     ];
+    // println!("{:#?}", network);
 
     let mut rng = rand::thread_rng();
     let inputs = (0..=1).cycle().map(move |category| {
@@ -48,6 +54,8 @@ fn main() {
         let guess = argmax(&network.eval(&input));
         writeln!(&mut file, "{},{},{}", input[0], input[1], guess).unwrap();
     }
+
+    // println!("{:#?}", network);
 }
 
 fn one_hot<const N: usize>(value: usize) -> [f64; N] {

@@ -48,6 +48,7 @@ pub(crate) fn reverse_dot_product<const WIDTH: usize, const HEIGHT: usize>(
     result
 }
 
+#[allow(dead_code)]
 pub(crate) fn assign_add_vector<const N: usize>(sum: &mut [f64; N], operand: &[f64; N]) {
     for i in 0..N {
         sum[i] += operand[i];
@@ -80,14 +81,6 @@ impl<J: Iterator> Iterator for Chunked<J> {
         }
     }
 }
-
-pub(crate) fn chunked<I: Iterator>(
-    iter: I,
-    chunk_size: usize,
-) -> impl Iterator<Item = Vec<I::Item>> {
-    Chunked { iter, chunk_size }
-}
-
 
 struct ShuffleCycled<I: Iterator, R: rand::Rng> {
     buffer: Vec<I::Item>,

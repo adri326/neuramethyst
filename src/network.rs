@@ -81,6 +81,14 @@ impl<Layer: NeuraTrainableLayer> NeuraTrainable for NeuraNetwork<Layer, ()> {
         let backprop_epsilon = loss.nabla(target, &final_activation);
         self.layer.backpropagate(&input, backprop_epsilon)
     }
+
+    fn prepare_epoch(&mut self) {
+        self.layer.prepare_epoch();
+    }
+
+    fn cleanup(&mut self) {
+        self.layer.cleanup();
+    }
 }
 
 impl<Layer: NeuraTrainableLayer, ChildNetwork: NeuraTrainable<Input = Layer::Output>> NeuraTrainable
@@ -107,6 +115,16 @@ impl<Layer: NeuraTrainableLayer, ChildNetwork: NeuraTrainable<Input = Layer::Out
             self.layer.backpropagate(input, backprop_gradient);
 
         (backprop_gradient, (layer_gradient, weights_gradient))
+    }
+
+    fn prepare_epoch(&mut self) {
+        self.layer.prepare_epoch();
+        self.child_network.prepare_epoch();
+    }
+
+    fn cleanup(&mut self) {
+        self.layer.cleanup();
+        self.child_network.cleanup();
     }
 }
 

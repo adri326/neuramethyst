@@ -1,5 +1,7 @@
 use super::NeuraLayer;
 use crate::{derivable::NeuraDerivable, utils::{multiply_matrix_vector, reverse_dot_product, multiply_matrix_transpose_vector}, train::NeuraTrainableLayer, algebra::NeuraVectorSpace};
+
+use rand_distr::Distribution;
 use rand::Rng;
 
 #[derive(Clone, Debug)]
@@ -31,11 +33,11 @@ impl<Act: NeuraDerivable<f64>, const INPUT_LEN: usize, const OUTPUT_LEN: usize>
     pub fn from_rng(rng: &mut impl Rng, activation: Act) -> Self {
         let mut weights = [[0.0; INPUT_LEN]; OUTPUT_LEN];
 
-        let multiplier = std::f64::consts::SQRT_2 / (INPUT_LEN as f64).sqrt();
+        let distribution = rand_distr::Normal::new(0.0, 2.0 / (INPUT_LEN as f64 + OUTPUT_LEN as f64)).unwrap();
 
         for i in 0..OUTPUT_LEN {
             for j in 0..INPUT_LEN {
-                weights[i][j] = rng.gen_range(0.0..multiplier);
+                weights[i][j] = distribution.sample(rng);
             }
         }
 

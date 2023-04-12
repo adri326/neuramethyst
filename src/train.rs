@@ -1,11 +1,11 @@
 use crate::{
-    // utils::{assign_add_vector, chunked},
     algebra::NeuraVectorSpace,
     derivable::NeuraLoss,
     layer::NeuraLayer,
-    network::NeuraNetwork, utils::cycle_shuffling,
+    network::NeuraNetwork,
 };
 
+// TODO: move this to layer/mod.rs
 pub trait NeuraTrainableLayer: NeuraLayer {
     type Delta: NeuraVectorSpace;
 
@@ -28,6 +28,14 @@ pub trait NeuraTrainableLayer: NeuraLayer {
 
     /// Applies `δW_l` to the weights of the layer
     fn apply_gradient(&mut self, gradient: &Self::Delta);
+
+    /// Called before an epoch begins, to allow the layer to set itself up for training.
+    #[inline(always)]
+    fn prepare_epoch(&mut self) {}
+
+    /// Called at the end of training, to allow the layer to clean itself up
+    #[inline(always)]
+    fn cleanup(&mut self) {}
 }
 
 pub trait NeuraTrainable: NeuraLayer {
@@ -42,6 +50,12 @@ pub trait NeuraTrainable: NeuraLayer {
         target: &Loss::Target,
         loss: Loss,
     ) -> (Self::Input, Self::Delta);
+
+    /// Called before an epoch begins, to allow the network to set itself up for training.
+    fn prepare_epoch(&mut self);
+
+    /// Called at the end of training, to allow the network to clean itself up
+    fn cleanup(&mut self);
 }
 
 pub trait NeuraGradientSolver<Output, Target = Output> {
@@ -179,6 +193,7 @@ impl NeuraBatchedTrainer {
         let mut previous_gradient_sum = <NeuraNetwork<Layer, ChildNetwork> as NeuraTrainable>::Delta::zero();
         'd: for epoch in 0..self.epochs {
             let mut gradient_sum = <NeuraNetwork<Layer, ChildNetwork> as NeuraTrainable>::Delta::zero();
+            network.prepare_epoch();
 
             for _ in 0..self.batch_size {
                 if let Some((input, target)) = iter.next() {
@@ -199,6 +214,7 @@ impl NeuraBatchedTrainer {
             }
 
             if self.log_epochs > 0 && (epoch + 1) % self.log_epochs == 0 {
+                network.cleanup();
                 let mut loss_sum = 0.0;
                 for (input, target) in test_inputs {
                     loss_sum += gradient_solver.score(&network, input, target);
@@ -207,6 +223,8 @@ impl NeuraBatchedTrainer {
                 println!("Epoch {}, Loss: {:.3}", epoch + 1, loss_sum);
             }
         }
+
+        network.cleanup();
     }
 }
 

@@ -7,6 +7,23 @@ pub trait NeuraVectorSpace {
     fn zero() -> Self;
 }
 
+impl NeuraVectorSpace for () {
+    #[inline(always)]
+    fn add_assign(&mut self, _other: &Self) {
+        // Noop
+    }
+
+    #[inline(always)]
+    fn mul_assign(&mut self, _by: f64) {
+        // Noop
+    }
+
+    #[inline(always)]
+    fn zero() -> Self {
+        ()
+    }
+}
+
 impl<Left: NeuraVectorSpace, Right: NeuraVectorSpace> NeuraVectorSpace for (Left, Right) {
     fn add_assign(&mut self, other: &Self) {
         NeuraVectorSpace::add_assign(&mut self.0, &other.0);
