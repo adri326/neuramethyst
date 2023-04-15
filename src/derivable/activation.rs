@@ -36,10 +36,9 @@ impl NeuraDerivable<f32> for Relu {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct LeakyRelu(pub f64);
+pub struct LeakyRelu<F>(pub F);
 
-
-impl NeuraDerivable<f64> for LeakyRelu {
+impl NeuraDerivable<f64> for LeakyRelu<f64> {
     #[inline(always)]
     fn eval(&self, input: f64) -> f64 {
         if input > 0.0 {
@@ -59,13 +58,13 @@ impl NeuraDerivable<f64> for LeakyRelu {
     }
 }
 
-impl NeuraDerivable<f32> for LeakyRelu {
+impl NeuraDerivable<f32> for LeakyRelu<f32> {
     #[inline(always)]
     fn eval(&self, input: f32) -> f32 {
         if input > 0.0 {
             input
         } else {
-            (self.0 as f32) * input
+            self.0 * input
         }
     }
 
@@ -74,7 +73,7 @@ impl NeuraDerivable<f32> for LeakyRelu {
         if input > 0.0 {
             1.0
         } else {
-            self.0 as f32
+            self.0
         }
     }
 }

@@ -1,8 +1,5 @@
 use crate::{
-    algebra::NeuraVectorSpace,
-    derivable::NeuraLoss,
-    layer::NeuraLayer,
-    network::NeuraNetwork,
+    algebra::NeuraVectorSpace, derivable::NeuraLoss, layer::NeuraLayer, network::NeuraNetwork,
 };
 
 // TODO: move this to layer/mod.rs
@@ -25,6 +22,9 @@ pub trait NeuraTrainableLayer: NeuraLayer {
         input: &Self::Input,
         epsilon: Self::Output,
     ) -> (Self::Input, Self::Delta);
+
+    /// Computes the regularization
+    fn regularize(&self) -> Self::Delta;
 
     /// Applies `δW_l` to the weights of the layer
     fn apply_gradient(&mut self, gradient: &Self::Delta);
@@ -50,6 +50,9 @@ pub trait NeuraTrainable: NeuraLayer {
         target: &Loss::Target,
         loss: Loss,
     ) -> (Self::Input, Self::Delta);
+
+    /// Should return the regularization gradient
+    fn regularize(&self) -> Self::Delta;
 
     /// Called before an epoch begins, to allow the network to set itself up for training.
     fn prepare_epoch(&mut self);
@@ -89,8 +92,8 @@ impl<Loss: NeuraLoss + Clone> NeuraBackprop<Loss> {
     }
 }
 
-impl<const N: usize, Loss: NeuraLoss<Input = [f64; N]> + Clone> NeuraGradientSolver<[f64; N], Loss::Target>
-    for NeuraBackprop<Loss>
+impl<const N: usize, Loss: NeuraLoss<Input = [f64; N]> + Clone>
+    NeuraGradientSolver<[f64; N], Loss::Target> for NeuraBackprop<Loss>
 {
     fn get_gradient<Layer: NeuraLayer, ChildNetwork>(
         &self,
@@ -184,15 +187,17 @@ impl NeuraBatchedTrainer {
         NeuraNetwork<Layer, ChildNetwork>: NeuraTrainable<Input = Layer::Input, Output = Output>,
         Layer::Input: Clone,
     {
-        // TODO: apply shuffling?
         let mut iter = inputs.into_iter();
         let factor = -self.learning_rate / (self.batch_size as f64);
         let momentum_factor = self.learning_momentum / self.learning_rate;
+        let reg_factor = -self.learning_rate;
 
         // Contains `momentum_factor * factor * gradient_sum_previous_iter`
-        let mut previous_gradient_sum = <NeuraNetwork<Layer, ChildNetwork> as NeuraTrainable>::Delta::zero();
+        let mut previous_gradient_sum =
+            <NeuraNetwork<Layer, ChildNetwork> as NeuraTrainable>::Delta::zero();
         'd: for epoch in 0..self.epochs {
-            let mut gradient_sum = <NeuraNetwork<Layer, ChildNetwork> as NeuraTrainable>::Delta::zero();
+            let mut gradient_sum =
+                <NeuraNetwork<Layer, ChildNetwork> as NeuraTrainable>::Delta::zero();
             network.prepare_epoch();
 
             for _ in 0..self.batch_size {
@@ -205,6 +210,12 @@ impl NeuraBatchedTrainer {
             }
 
             gradient_sum.mul_assign(factor);
+
+            // Add regularization gradient (TODO: check if it can be factored out of momentum)
+            let mut reg_gradient = network.regularize();
+            reg_gradient.mul_assign(reg_factor);
+            gradient_sum.add_assign(&reg_gradient);
+
             network.apply_gradient(&gradient_sum);
 
             if self.learning_momentum != 0.0 {
@@ -230,23 +241,21 @@ impl NeuraBatchedTrainer {
 
 #[cfg(test)]
 mod test {
-    use crate::{layer::NeuraDenseLayer, derivable::{activation::Linear, loss::Euclidean}};
     use super::*;
+    use crate::{
+        derivable::{activation::Linear, loss::Euclidean, regularize::NeuraL0},
+        layer::NeuraDenseLayer,
+    };
 
     #[test]
     fn test_backpropagation_simple() {
         for wa in [0.0, 0.25, 0.5, 1.0] {
             for wb in [0.0, 0.25, 0.5, 1.0] {
-                let network = NeuraNetwork::new(
-                    NeuraDenseLayer::new([[wa, wb]], [0.0], Linear),
-                    ()
-                );
+                let network =
+                    NeuraNetwork::new(NeuraDenseLayer::new([[wa, wb]], [0.0], Linear, NeuraL0), ());
 
-                let gradient = NeuraBackprop::new(Euclidean).get_gradient(
-                    &network,
-                    &[1.0, 1.0],
-                    &[0.0]
-                );
+                let gradient =
+                    NeuraBackprop::new(Euclidean).get_gradient(&network, &[1.0, 1.0], &[0.0]);
 
                 let expected = wa + wb;
                 assert!((gradient.0[0][0] - expected) < 0.001);

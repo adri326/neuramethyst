@@ -33,6 +33,7 @@ pub(crate) fn multiply_matrix_transpose_vector<const WIDTH: usize, const HEIGHT:
     result
 }
 
+// Returns $left^{\top} \cdot right$, ie. $\ket{left} \bra{right}$
 pub(crate) fn reverse_dot_product<const WIDTH: usize, const HEIGHT: usize>(
     left: &[f64; HEIGHT],
     right: &[f64; WIDTH],
@@ -43,6 +44,32 @@ pub(crate) fn reverse_dot_product<const WIDTH: usize, const HEIGHT: usize>(
         for j in 0..WIDTH {
             result[i][j] = left[i] * right[j];
         }
+    }
+
+    result
+}
+
+pub(crate) fn multiply_vectors_pointwise<const LENGTH: usize>(
+    left: &[f64; LENGTH],
+    right: &[f64; LENGTH],
+) -> [f64; LENGTH] {
+    let mut result = [0.0; LENGTH];
+
+    for i in 0..LENGTH {
+        result[i] = left[i] * right[i];
+    }
+
+    result
+}
+
+#[cfg(test)]
+pub(crate) fn matrix_from_diagonal<const LENGTH: usize>(
+    vector: &[f64; LENGTH],
+) -> [[f64; LENGTH]; LENGTH] {
+    let mut result = [[0.0; LENGTH]; LENGTH];
+
+    for i in 0..LENGTH {
+        result[i][i] = vector[i];
     }
 
     result
@@ -89,7 +116,10 @@ struct ShuffleCycled<I: Iterator, R: rand::Rng> {
     rng: R,
 }
 
-impl<I: Iterator, R: rand::Rng> Iterator for ShuffleCycled<I, R> where I::Item: Clone {
+impl<I: Iterator, R: rand::Rng> Iterator for ShuffleCycled<I, R>
+where
+    I::Item: Clone,
+{
     type Item = I::Item;
 
     #[inline]
@@ -99,7 +129,7 @@ impl<I: Iterator, R: rand::Rng> Iterator for ShuffleCycled<I, R> where I::Item: 
         if let Some(next) = self.iter.next() {
             // Base iterator is not empty yet
             self.buffer.push(next.clone());
-            return Some(next)
+            return Some(next);
         } else if self.buffer.len() > 0 {
             if self.index == 0 {
                 // Shuffle the vector and return the first element, setting the index to 1
@@ -118,12 +148,9 @@ impl<I: Iterator, R: rand::Rng> Iterator for ShuffleCycled<I, R> where I::Item: 
     }
 }
 
-pub fn cycle_shuffling<I: Iterator>(
-    iter: I,
-    rng: impl rand::Rng
-) -> impl Iterator<Item=I::Item>
+pub fn cycle_shuffling<I: Iterator>(iter: I, rng: impl rand::Rng) -> impl Iterator<Item = I::Item>
 where
-    I::Item: Clone
+    I::Item: Clone,
 {
     let size_hint = iter.size_hint();
     let size_hint = size_hint.1.unwrap_or(size_hint.0).max(1);
@@ -132,6 +159,19 @@ where
         buffer: Vec::with_capacity(size_hint),
         index: 0,
         iter,
-        rng
+        rng,
     }
+}
+
+#[cfg(test)]
+pub(crate) fn uniform_vector<const LENGTH: usize>() -> [f64; LENGTH] {
+    use rand::Rng;
+    let mut res = [0.0; LENGTH];
+    let mut rng = rand::thread_rng();
+
+    for i in 0..LENGTH {
+        res[i] = rng.gen();
+    }
+
+    res
 }

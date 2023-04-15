@@ -10,15 +10,11 @@ mod utils;
 
 pub mod prelude {
     // Macros
-    pub use crate::{neura_network, neura_layer};
+    pub use crate::{neura_layer, neura_network};
 
     // Structs and traits
-    pub use crate::network::{NeuraNetwork};
-    pub use crate::layer::{
-        NeuraLayer,
-        NeuraDenseLayer,
-        NeuraDropoutLayer
-    };
+    pub use crate::layer::{NeuraDenseLayer, NeuraDropoutLayer, NeuraLayer};
+    pub use crate::network::NeuraNetwork;
     pub use crate::train::{NeuraBackprop, NeuraBatchedTrainer};
     pub use crate::utils::cycle_shuffling;
 }

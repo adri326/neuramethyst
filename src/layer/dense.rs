@@ -1,39 +1,53 @@
 use super::NeuraLayer;
-use crate::{derivable::NeuraDerivable, utils::{multiply_matrix_vector, reverse_dot_product, multiply_matrix_transpose_vector}, train::NeuraTrainableLayer, algebra::NeuraVectorSpace};
+use crate::{
+    algebra::NeuraVectorSpace,
+    derivable::NeuraDerivable,
+    train::NeuraTrainableLayer,
+    utils::{multiply_matrix_transpose_vector, multiply_matrix_vector, reverse_dot_product},
+};
 
-use rand_distr::Distribution;
 use rand::Rng;
+use rand_distr::Distribution;
 
 #[derive(Clone, Debug)]
 pub struct NeuraDenseLayer<
     Act: NeuraDerivable<f64>,
+    Reg: NeuraDerivable<f64>,
     const INPUT_LEN: usize,
     const OUTPUT_LEN: usize,
 > {
     weights: [[f64; INPUT_LEN]; OUTPUT_LEN],
     bias: [f64; OUTPUT_LEN],
     activation: Act,
+    regularization: Reg,
 }
 
-impl<Act: NeuraDerivable<f64>, const INPUT_LEN: usize, const OUTPUT_LEN: usize>
-    NeuraDenseLayer<Act, INPUT_LEN, OUTPUT_LEN>
+impl<
+        Act: NeuraDerivable<f64>,
+        Reg: NeuraDerivable<f64>,
+        const INPUT_LEN: usize,
+        const OUTPUT_LEN: usize,
+    > NeuraDenseLayer<Act, Reg, INPUT_LEN, OUTPUT_LEN>
 {
     pub fn new(
         weights: [[f64; INPUT_LEN]; OUTPUT_LEN],
         bias: [f64; OUTPUT_LEN],
         activation: Act,
+        regularization: Reg,
     ) -> Self {
         Self {
             weights,
             bias,
             activation,
+            regularization,
         }
     }
 
-    pub fn from_rng(rng: &mut impl Rng, activation: Act) -> Self {
+    pub fn from_rng(rng: &mut impl Rng, activation: Act, regularization: Reg) -> Self {
         let mut weights = [[0.0; INPUT_LEN]; OUTPUT_LEN];
 
-        let distribution = rand_distr::Normal::new(0.0, 2.0 / (INPUT_LEN as f64 + OUTPUT_LEN as f64)).unwrap();
+        let distribution =
+            rand_distr::Normal::new(0.0, 2.0 / (INPUT_LEN as f64 + OUTPUT_LEN as f64)).unwrap();
 
         for i in 0..OUTPUT_LEN {
             for j in 0..INPUT_LEN {
@@ -46,12 +60,17 @@ impl<Act: NeuraDerivable<f64>, const INPUT_LEN: usize, const OUTPUT_LEN: usize>
             // Biases are zero-initialized, as this shouldn't cause any issues during training
             bias: [0.0; OUTPUT_LEN],
             activation,
+            regularization,
         }
     }
 }
 
-impl<Act: NeuraDerivable<f64>, const INPUT_LEN: usize, const OUTPUT_LEN: usize> NeuraLayer
-    for NeuraDenseLayer<Act, INPUT_LEN, OUTPUT_LEN>
+impl<
+        Act: NeuraDerivable<f64>,
+        Reg: NeuraDerivable<f64>,
+        const INPUT_LEN: usize,
+        const OUTPUT_LEN: usize,
+    > NeuraLayer for NeuraDenseLayer<Act, Reg, INPUT_LEN, OUTPUT_LEN>
 {
     type Input = [f64; INPUT_LEN];
 
@@ -68,13 +87,21 @@ impl<Act: NeuraDerivable<f64>, const INPUT_LEN: usize, const OUTPUT_LEN: usize> 
     }
 }
 
-impl<Act: NeuraDerivable<f64>, const INPUT_LEN: usize, const OUTPUT_LEN: usize> NeuraTrainableLayer
-    for NeuraDenseLayer<Act, INPUT_LEN, OUTPUT_LEN>
+impl<
+        Act: NeuraDerivable<f64>,
+        Reg: NeuraDerivable<f64>,
+        const INPUT_LEN: usize,
+        const OUTPUT_LEN: usize,
+    > NeuraTrainableLayer for NeuraDenseLayer<Act, Reg, INPUT_LEN, OUTPUT_LEN>
 {
     type Delta = ([[f64; INPUT_LEN]; OUTPUT_LEN], [f64; OUTPUT_LEN]);
 
     // TODO: double-check the math in this
-    fn backpropagate(&self, input: &Self::Input, epsilon: Self::Output) -> (Self::Input, Self::Delta) {
+    fn backpropagate(
+        &self,
+        input: &Self::Input,
+        epsilon: Self::Output,
+    ) -> (Self::Input, Self::Delta) {
         let evaluated = multiply_matrix_vector(&self.weights, input);
         // Compute delta from epsilon, with `self.activation'(input) ° epsilon = delta`
         let mut delta = epsilon.clone();
@@ -96,17 +123,32 @@ impl<Act: NeuraDerivable<f64>, const INPUT_LEN: usize, const OUTPUT_LEN: usize> 
         NeuraVectorSpace::add_assign(&mut self.weights, &gradient.0);
         NeuraVectorSpace::add_assign(&mut self.bias, &gradient.1);
     }
+
+    fn regularize(&self) -> Self::Delta {
+        let mut res = ([[0.0; INPUT_LEN]; OUTPUT_LEN], [0.0; OUTPUT_LEN]);
+
+        for i in 0..OUTPUT_LEN {
+            for j in 0..INPUT_LEN {
+                res.0[i][j] = self.regularization.derivate(self.weights[i][j]);
+            }
+        }
+
+        // Note: biases aren't taken into account here, as per https://stats.stackexchange.com/questions/153605/no-regularisation-term-for-bias-unit-in-neural-network
+
+        res
+    }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::derivable::activation::Relu;
+    use crate::derivable::{activation::Relu, regularize::NeuraL0};
 
     #[test]
     fn test_from_rng() {
         let mut rng = rand::thread_rng();
-        let layer: NeuraDenseLayer<_, 64, 32> = NeuraDenseLayer::from_rng(&mut rng, Relu);
+        let layer: NeuraDenseLayer<_, _, 64, 32> =
+            NeuraDenseLayer::from_rng(&mut rng, Relu, NeuraL0);
         let mut input = [0.0; 64];
         for x in 0..64 {
             input[x] = rng.gen();

@@ -82,6 +82,10 @@ impl<Layer: NeuraTrainableLayer> NeuraTrainable for NeuraNetwork<Layer, ()> {
         self.layer.backpropagate(&input, backprop_epsilon)
     }
 
+    fn regularize(&self) -> Self::Delta {
+        self.layer.regularize()
+    }
+
     fn prepare_epoch(&mut self) {
         self.layer.prepare_epoch();
     }
@@ -117,6 +121,10 @@ impl<Layer: NeuraTrainableLayer, ChildNetwork: NeuraTrainable<Input = Layer::Out
         (backprop_gradient, (layer_gradient, weights_gradient))
     }
 
+    fn regularize(&self) -> Self::Delta {
+        (self.layer.regularize(), self.child_network.regularize())
+    }
+
     fn prepare_epoch(&mut self) {
         self.layer.prepare_epoch();
         self.child_network.prepare_epoch();
@@ -145,7 +153,11 @@ macro_rules! neura_network {
 
 #[cfg(test)]
 mod test {
-    use crate::{derivable::activation::Relu, layer::NeuraDenseLayer, neura_layer};
+    use crate::{
+        derivable::{activation::Relu, regularize::NeuraL0},
+        layer::NeuraDenseLayer,
+        neura_layer,
+    };
 
     use super::*;
 
@@ -154,23 +166,24 @@ mod test {
         let mut rng = rand::thread_rng();
 
         let _ = neura_network![
-            NeuraDenseLayer::from_rng(&mut rng, Relu) as NeuraDenseLayer<_, 8, 16>,
-            NeuraDenseLayer::from_rng(&mut rng, Relu) as NeuraDenseLayer<_, _, 12>,
-            NeuraDenseLayer::from_rng(&mut rng, Relu) as NeuraDenseLayer<_, _, 2>
-        ];
-
-        let _ =
-            neura_network![NeuraDenseLayer::from_rng(&mut rng, Relu) as NeuraDenseLayer<_, 8, 16>,];
-
-        let _ = neura_network![
-            NeuraDenseLayer::from_rng(&mut rng, Relu) as NeuraDenseLayer<_, 8, 16>,
-            NeuraDenseLayer::from_rng(&mut rng, Relu) as NeuraDenseLayer<_, _, 12>,
+            NeuraDenseLayer::from_rng(&mut rng, Relu, NeuraL0) as NeuraDenseLayer<_, _, 8, 16>,
+            NeuraDenseLayer::from_rng(&mut rng, Relu, NeuraL0) as NeuraDenseLayer<_, _, _, 12>,
+            NeuraDenseLayer::from_rng(&mut rng, Relu, NeuraL0) as NeuraDenseLayer<_, _, _, 2>
         ];
 
         let _ = neura_network![
-            neura_layer!("dense", Relu, 16, 8),
-            neura_layer!("dense", Relu, 12),
-            neura_layer!("dense", Relu, 2)
+            NeuraDenseLayer::from_rng(&mut rng, Relu, NeuraL0) as NeuraDenseLayer<_, _, 8, 16>,
+        ];
+
+        let _ = neura_network![
+            NeuraDenseLayer::from_rng(&mut rng, Relu, NeuraL0) as NeuraDenseLayer<_, _, 8, 16>,
+            NeuraDenseLayer::from_rng(&mut rng, Relu, NeuraL0) as NeuraDenseLayer<_, _, _, 12>,
+        ];
+
+        let _ = neura_network![
+            neura_layer!("dense", 8, 16; Relu),
+            neura_layer!("dense", 12; Relu),
+            neura_layer!("dense", 2; Relu)
         ];
     }
 }

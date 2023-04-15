@@ -2,22 +2,26 @@
 
 use std::io::Write;
 
-use neuramethyst::prelude::*;
-use neuramethyst::derivable::activation::{Relu, Tanh, LeakyRelu};
+use neuramethyst::derivable::activation::Linear;
+#[allow(unused_imports)]
+use neuramethyst::derivable::activation::{LeakyRelu, Relu, Tanh};
 use neuramethyst::derivable::loss::Euclidean;
+use neuramethyst::derivable::regularize::NeuraElastic;
+use neuramethyst::prelude::*;
 
 use rand::Rng;
 
 fn main() {
     let mut network = neura_network![
-        neura_layer!("dense", LeakyRelu(0.01), 9, 2),
+        neura_layer!("dense", 2, 8; LeakyRelu(0.01)),
         neura_layer!("dropout", 0.1),
-        neura_layer!("dense", LeakyRelu(0.01), 9),
+        neura_layer!("dense", 8; LeakyRelu(0.01), NeuraElastic::new(0.0001, 0.002)),
         neura_layer!("dropout", 0.3),
-        neura_layer!("dense", LeakyRelu(0.01), 6),
+        neura_layer!("dense", 8; LeakyRelu(0.01), NeuraElastic::new(0.0001, 0.002)),
         neura_layer!("dropout", 0.1),
-        neura_layer!("dense", LeakyRelu(0.01), 4),
-        neura_layer!("dense", LeakyRelu(0.1), 2)
+        neura_layer!("dense", 4; LeakyRelu(0.1), NeuraElastic::new(0.0001, 0.002)),
+        neura_layer!("dense", 2; Linear),
+        neura_layer!("softmax"),
     ];
     // println!("{:#?}", network);
 
@@ -39,20 +43,23 @@ fn main() {
 
     let test_inputs: Vec<_> = inputs.clone().take(100).collect();
 
-    let mut trainer = NeuraBatchedTrainer::new(0.1, 4000);
-    trainer.log_epochs = 500;
+    let mut trainer = NeuraBatchedTrainer::new(0.25, 1000);
+    trainer.log_epochs = 50;
+    trainer.learning_momentum = 0.05;
+    trainer.batch_size = 2000;
 
     trainer.train(
         NeuraBackprop::new(Euclidean),
         &mut network,
         inputs,
-        &test_inputs
+        &test_inputs,
     );
 
     let mut file = std::fs::File::create("target/bivariate.csv").unwrap();
     for (input, _target) in test_inputs {
         let guess = argmax(&network.eval(&input));
         writeln!(&mut file, "{},{},{}", input[0], input[1], guess).unwrap();
+        // println!("{:?}", network.eval(&input));
     }
 
     // println!("{:#?}", network);

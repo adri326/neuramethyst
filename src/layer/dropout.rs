@@ -59,6 +59,10 @@ impl<const LENGTH: usize, R: Rng> NeuraTrainableLayer for NeuraDropoutLayer<LENG
         (epsilon, ())
     }
 
+    fn regularize(&self) -> Self::Delta {
+        ()
+    }
+
     #[inline(always)]
     fn apply_gradient(&mut self, _gradient: &Self::Delta) {
         // Noop

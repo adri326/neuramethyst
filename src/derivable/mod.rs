@@ -1,5 +1,6 @@
 pub mod activation;
 pub mod loss;
+pub mod regularize;
 
 pub trait NeuraDerivable<F> {
     fn eval(&self, input: F) -> F;
