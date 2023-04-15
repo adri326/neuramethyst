@@ -29,7 +29,7 @@ fn main() {
 
     let mut trainer = NeuraBatchedTrainer::new(0.05, 1000);
     trainer.batch_size = 6;
-    trainer.log_epochs = 250;
+    trainer.log_iterations = 250;
     trainer.learning_momentum = 0.01;
 
     trainer.train(

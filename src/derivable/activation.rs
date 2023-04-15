@@ -1,135 +1,108 @@
+#![allow(unused_variables)]
+
 use super::NeuraDerivable;
+
+macro_rules! impl_derivable {
+    ( $type_f32:ty, $type_f64:ty, $self:ident, $variable:ident, $eval:expr, $derivate:expr $(; $variance_hint:expr, $bias_hint:expr )? ) => {
+        impl NeuraDerivable<f32> for $type_f32 {
+            #[inline(always)]
+            fn eval($self: &Self, $variable: f32) -> f32 {
+                $eval
+            }
+
+            #[inline(always)]
+            fn derivate($self: &Self, $variable: f32) -> f32 {
+                $derivate
+            }
+
+            $(
+                #[inline(always)]
+                fn variance_hint($self: &Self) -> f64 {
+                    $variance_hint
+                }
+
+                #[inline(always)]
+                fn bias_hint($self: &Self) -> f64 {
+                    $bias_hint
+                }
+            )?
+        }
+
+        impl NeuraDerivable<f64> for $type_f64 {
+            #[inline(always)]
+            fn eval($self: &Self, $variable: f64) -> f64 {
+                $eval
+            }
+
+            #[inline(always)]
+            fn derivate($self: &Self, $variable: f64) -> f64 {
+                $derivate
+            }
+
+            $(
+                #[inline(always)]
+                fn variance_hint($self: &Self) -> f64 {
+                    $variance_hint
+                }
+
+                #[inline(always)]
+                fn bias_hint($self: &Self) -> f64 {
+                    $bias_hint
+                }
+            )?
+        }
+    };
+
+    ( $type:ty, $variable:ident, $eval:expr, $derivate:expr $(; $variance_hint:expr, $bias_hint:expr )? ) => {
+        impl_derivable!($type, $type, self, $variable, $eval, $derivate $(; $variance_hint, $bias_hint)?);
+    };
+}
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Relu;
 
-impl NeuraDerivable<f64> for Relu {
-    #[inline(always)]
-    fn eval(&self, input: f64) -> f64 {
-        input.max(0.0)
+impl_derivable!(Relu, x, x.max(0.0), {
+    if x > 0.0 {
+        1.0
+    } else {
+        0.0
     }
-
-    #[inline(always)]
-    fn derivate(&self, input: f64) -> f64 {
-        if input > 0.0 {
-            1.0
-        } else {
-            0.0
-        }
-    }
-}
-
-impl NeuraDerivable<f32> for Relu {
-    #[inline(always)]
-    fn eval(&self, input: f32) -> f32 {
-        input.max(0.0)
-    }
-
-    #[inline(always)]
-    fn derivate(&self, input: f32) -> f32 {
-        if input > 0.0 {
-            1.0
-        } else {
-            0.0
-        }
-    }
-}
+}; 2.0, 0.1);
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct LeakyRelu<F>(pub F);
 
-impl NeuraDerivable<f64> for LeakyRelu<f64> {
-    #[inline(always)]
-    fn eval(&self, input: f64) -> f64 {
-        if input > 0.0 {
-            input
+impl_derivable!(
+    LeakyRelu<f32>,
+    LeakyRelu<f64>,
+    self,
+    x,
+    {
+        if x > 0.0 {
+            x
         } else {
-            self.0 * input
+            self.0 * x
         }
-    }
-
-    #[inline(always)]
-    fn derivate(&self, input: f64) -> f64 {
-        if input > 0.0 {
+    },
+    {
+        if x > 0.0 {
             1.0
         } else {
             self.0
         }
-    }
-}
-
-impl NeuraDerivable<f32> for LeakyRelu<f32> {
-    #[inline(always)]
-    fn eval(&self, input: f32) -> f32 {
-        if input > 0.0 {
-            input
-        } else {
-            self.0 * input
-        }
-    }
-
-    #[inline(always)]
-    fn derivate(&self, input: f32) -> f32 {
-        if input > 0.0 {
-            1.0
-        } else {
-            self.0
-        }
-    }
-}
+    };
+    2.0, 0.1
+);
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Tanh;
 
-impl NeuraDerivable<f64> for Tanh {
-    #[inline(always)]
-    fn eval(&self, input: f64) -> f64 {
-        0.5 * input.tanh() + 0.5
-    }
-
-    #[inline(always)]
-    fn derivate(&self, at: f64) -> f64 {
-        let tanh = at.tanh();
-        0.5 * (1.0 - tanh * tanh)
-    }
-}
-
-impl NeuraDerivable<f32> for Tanh {
-    #[inline(always)]
-    fn eval(&self, input: f32) -> f32 {
-        0.5 * input.tanh() + 0.5
-    }
-
-    #[inline(always)]
-    fn derivate(&self, at: f32) -> f32 {
-        let tanh = at.tanh();
-        0.5 * (1.0 - tanh * tanh)
-    }
-}
+impl_derivable!(Tanh, x, x.tanh(), {
+    let y = x.tanh();
+    1.0 - y * y
+});
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Linear;
 
-impl NeuraDerivable<f64> for Linear {
-    #[inline(always)]
-    fn eval(&self, input: f64) -> f64 {
-        input
-    }
-
-    #[inline(always)]
-    fn derivate(&self, _at: f64) -> f64 {
-        1.0
-    }
-}
-
-impl NeuraDerivable<f32> for Linear {
-    #[inline(always)]
-    fn eval(&self, input: f32) -> f32 {
-        input
-    }
-
-    #[inline(always)]
-    fn derivate(&self, _at: f32) -> f32 {
-        1.0
-    }
-}
+impl_derivable!(Linear, x, x, 1.0);

@@ -7,6 +7,18 @@ pub trait NeuraDerivable<F> {
 
     /// Should return the derivative of `self.eval(input)`
     fn derivate(&self, at: F) -> F;
+
+    /// Should return a hint for how much the variance for a random initialization should be
+    #[inline(always)]
+    fn variance_hint(&self) -> f64 {
+        1.0
+    }
+
+    /// Should return a hint for what the default bias value should be
+    #[inline(always)]
+    fn bias_hint(&self) -> f64 {
+        0.0
+    }
 }
 
 pub trait NeuraLoss {

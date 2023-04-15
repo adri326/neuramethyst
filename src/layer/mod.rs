@@ -7,6 +7,9 @@ pub use dropout::NeuraDropoutLayer;
 mod softmax;
 pub use softmax::NeuraSoftmaxLayer;
 
+mod one_hot;
+pub use one_hot::NeuraOneHotLayer;
+
 pub trait NeuraLayer {
     type Input;
     type Output;
@@ -45,5 +48,9 @@ macro_rules! neura_layer {
 
     ( "softmax", $length:expr ) => {
         $crate::layer::NeuraSoftmaxLayer::new() as $crate::layer::NeuraSoftmaxLayer<$length>
+    };
+
+    ( "one_hot" ) => {
+        $crate::layer::NeuraOneHotLayer as $crate::layer::NeuraOneHotLayer<2, _>
     };
 }

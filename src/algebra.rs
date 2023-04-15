@@ -5,6 +5,8 @@ pub trait NeuraVectorSpace {
     fn mul_assign(&mut self, by: f64);
 
     fn zero() -> Self;
+
+    fn norm_squared(&self) -> f64;
 }
 
 impl NeuraVectorSpace for () {
@@ -22,6 +24,10 @@ impl NeuraVectorSpace for () {
     fn zero() -> Self {
         ()
     }
+
+    fn norm_squared(&self) -> f64 {
+        0.0
+    }
 }
 
 impl<Left: NeuraVectorSpace, Right: NeuraVectorSpace> NeuraVectorSpace for (Left, Right) {
@@ -37,6 +43,10 @@ impl<Left: NeuraVectorSpace, Right: NeuraVectorSpace> NeuraVectorSpace for (Left
 
     fn zero() -> Self {
         (Left::zero(), Right::zero())
+    }
+
+    fn norm_squared(&self) -> f64 {
+        self.0.norm_squared() + self.1.norm_squared()
     }
 }
 
@@ -65,6 +75,10 @@ impl<const N: usize, T: NeuraVectorSpace + Clone> NeuraVectorSpace for [T; N] {
             unreachable!()
         })
     }
+
+    fn norm_squared(&self) -> f64 {
+        self.iter().map(T::norm_squared).sum()
+    }
 }
 
 macro_rules! base {
@@ -80,6 +94,10 @@ macro_rules! base {
 
             fn zero() -> Self {
                 <Self as Default>::default()
+            }
+
+            fn norm_squared(&self) -> f64 {
+                (self * self) as f64
             }
         }
     };

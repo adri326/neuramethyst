@@ -175,3 +175,54 @@ pub(crate) fn uniform_vector<const LENGTH: usize>() -> [f64; LENGTH] {
 
     res
 }
+
+pub fn one_hot<const N: usize>(value: usize) -> [f64; N] {
+    let mut res = [0.0; N];
+    if value < N {
+        res[value] = 1.0;
+    }
+    res
+}
+
+pub fn argmax(array: &[f64]) -> usize {
+    let mut res = 0;
+
+    for n in 1..array.len() {
+        if array[n] > array[res] {
+            res = n;
+        }
+    }
+
+    res
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_reverse_dot_product() {
+        let left = [2.0, 3.0, 5.0];
+        let right = [7.0, 11.0, 13.0, 17.0];
+
+        let expected = [
+            [14.0, 22.0, 26.0, 34.0],
+            [21.0, 33.0, 39.0, 51.0],
+            [35.0, 55.0, 65.0, 85.0],
+        ];
+
+        assert_eq!(expected, reverse_dot_product(&left, &right));
+    }
+}
+
+#[cfg(test)]
+#[macro_export]
+macro_rules! assert_approx {
+    ( $left:expr, $right:expr, $epsilon:expr ) => {
+        let left = $left;
+        let right = $right;
+        if (left - right).abs() >= $epsilon {
+            panic!("Expected {} to be approximately equal to {}", left, right);
+        }
+    };
+}

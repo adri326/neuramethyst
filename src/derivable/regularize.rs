@@ -73,7 +73,7 @@ pub struct NeuraL2<F>(pub F);
 impl NeuraDerivable<f64> for NeuraL2<f64> {
     #[inline(always)]
     fn eval(&self, input: f64) -> f64 {
-        self.0 * (input * input)
+        (0.5 * self.0) * (input * input)
     }
 
     #[inline(always)]
@@ -85,7 +85,7 @@ impl NeuraDerivable<f64> for NeuraL2<f64> {
 impl NeuraDerivable<f32> for NeuraL2<f32> {
     #[inline(always)]
     fn eval(&self, input: f32) -> f32 {
-        self.0 * (input * input)
+        (0.5 * self.0) * (input * input)
     }
 
     #[inline(always)]

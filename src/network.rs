@@ -6,8 +6,8 @@ use crate::{
 
 #[derive(Clone, Debug)]
 pub struct NeuraNetwork<Layer: NeuraLayer, ChildNetwork> {
-    layer: Layer,
-    child_network: ChildNetwork,
+    pub layer: Layer,
+    pub child_network: ChildNetwork,
 }
 
 impl<Layer: NeuraLayer, ChildNetwork> NeuraNetwork<Layer, ChildNetwork> {
@@ -25,20 +25,66 @@ impl<Layer: NeuraLayer, ChildNetwork> NeuraNetwork<Layer, ChildNetwork> {
         Self::new(layer, child_network)
     }
 
-    pub fn child_network(&self) -> &ChildNetwork {
-        &self.child_network
+    pub fn trim_front(self) -> ChildNetwork {
+        self.child_network
     }
 
-    pub fn layer(&self) -> &Layer {
-        &self.layer
+    pub fn push_front<T: NeuraLayer>(self, layer: T) -> NeuraNetwork<T, Self> {
+        NeuraNetwork {
+            layer: layer,
+            child_network: self,
+        }
     }
 }
 
-impl<Layer: NeuraLayer> From<Layer> for NeuraNetwork<Layer, ()> {
-    fn from(layer: Layer) -> Self {
-        Self {
-            layer,
-            child_network: (),
+/// Operations on the tail end of the network
+pub trait NeuraNetworkTail {
+    type TailTrimmed;
+    type TailPushed<T: NeuraLayer>;
+
+    fn trim_tail(self) -> Self::TailTrimmed;
+    fn push_tail<T: NeuraLayer>(self, layer: T) -> Self::TailPushed<T>;
+}
+
+// Trimming the last layer returns an empty network
+impl<Layer: NeuraLayer> NeuraNetworkTail for NeuraNetwork<Layer, ()> {
+    type TailTrimmed = ();
+    type TailPushed<T: NeuraLayer> = NeuraNetwork<Layer, NeuraNetwork<T, ()>>;
+
+    fn trim_tail(self) -> Self::TailTrimmed {
+        ()
+    }
+
+    fn push_tail<T: NeuraLayer>(self, layer: T) -> Self::TailPushed<T> {
+        NeuraNetwork {
+            layer: self.layer,
+            child_network: NeuraNetwork {
+                layer,
+                child_network: (),
+            },
+        }
+    }
+}
+
+// Trimming another layer returns a network which calls trim recursively
+impl<Layer: NeuraLayer, ChildNetwork: NeuraNetworkTail> NeuraNetworkTail
+    for NeuraNetwork<Layer, ChildNetwork>
+{
+    type TailTrimmed = NeuraNetwork<Layer, <ChildNetwork as NeuraNetworkTail>::TailTrimmed>;
+    type TailPushed<T: NeuraLayer> =
+        NeuraNetwork<Layer, <ChildNetwork as NeuraNetworkTail>::TailPushed<T>>;
+
+    fn trim_tail(self) -> Self::TailTrimmed {
+        NeuraNetwork {
+            layer: self.layer,
+            child_network: self.child_network.trim_tail(),
+        }
+    }
+
+    fn push_tail<T: NeuraLayer>(self, layer: T) -> Self::TailPushed<T> {
+        NeuraNetwork {
+            layer: self.layer,
+            child_network: self.child_network.push_tail(layer),
         }
     }
 }
@@ -136,6 +182,15 @@ impl<Layer: NeuraTrainableLayer, ChildNetwork: NeuraTrainable<Input = Layer::Out
     }
 }
 
+impl<Layer: NeuraLayer> From<Layer> for NeuraNetwork<Layer, ()> {
+    fn from(layer: Layer) -> Self {
+        Self {
+            layer,
+            child_network: (),
+        }
+    }
+}
+
 #[macro_export]
 macro_rules! neura_network {
     [] => {
@@ -143,11 +198,11 @@ macro_rules! neura_network {
     };
 
     [ $layer:expr $(,)? ] => {
-        NeuraNetwork::from($layer)
+        $crate::network::NeuraNetwork::from($layer)
     };
 
     [ $first:expr, $($rest:expr),+ $(,)? ] => {
-        NeuraNetwork::new_match_output($first, neura_network![$($rest),+])
+        $crate::network::NeuraNetwork::new_match_output($first, neura_network![$($rest),+])
     };
 }
 
@@ -158,8 +213,6 @@ mod test {
         layer::NeuraDenseLayer,
         neura_layer,
     };
-
-    use super::*;
 
     #[test]
     fn test_neura_network_macro() {

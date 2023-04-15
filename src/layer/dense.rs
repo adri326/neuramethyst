@@ -46,8 +46,14 @@ impl<
     pub fn from_rng(rng: &mut impl Rng, activation: Act, regularization: Reg) -> Self {
         let mut weights = [[0.0; INPUT_LEN]; OUTPUT_LEN];
 
-        let distribution =
-            rand_distr::Normal::new(0.0, 2.0 / (INPUT_LEN as f64 + OUTPUT_LEN as f64)).unwrap();
+        // Use Xavier (or He) initialisation, using the harmonic mean
+        // Ref: https://www.deeplearning.ai/ai-notes/initialization/index.html
+        let distribution = rand_distr::Normal::new(
+            0.0,
+            activation.variance_hint() * 2.0 / (INPUT_LEN as f64 + OUTPUT_LEN as f64),
+        )
+        .unwrap();
+        // let distribution = rand_distr::Uniform::new(-0.5, 0.5);
 
         for i in 0..OUTPUT_LEN {
             for j in 0..INPUT_LEN {
@@ -57,8 +63,8 @@ impl<
 
         Self {
             weights,
-            // Biases are zero-initialized, as this shouldn't cause any issues during training
-            bias: [0.0; OUTPUT_LEN],
+            // Biases are initialized based on the activation's hint
+            bias: [activation.bias_hint(); OUTPUT_LEN],
             activation,
             regularization,
         }
@@ -96,20 +102,22 @@ impl<
 {
     type Delta = ([[f64; INPUT_LEN]; OUTPUT_LEN], [f64; OUTPUT_LEN]);
 
-    // TODO: double-check the math in this
     fn backpropagate(
         &self,
         input: &Self::Input,
         epsilon: Self::Output,
     ) -> (Self::Input, Self::Delta) {
         let evaluated = multiply_matrix_vector(&self.weights, input);
-        // Compute delta from epsilon, with `self.activation'(input) ° epsilon = delta`
+        // Compute delta (the input gradient of the neuron) from epsilon (the output gradient of the neuron),
+        // with `self.activation'(input) ° epsilon = delta`
         let mut delta = epsilon.clone();
         for i in 0..OUTPUT_LEN {
             delta[i] *= self.activation.derivate(evaluated[i]);
         }
 
+        // Compute the weight gradient
         let weights_gradient = reverse_dot_product(&delta, input);
+
         // According to https://datascience.stackexchange.com/questions/20139/gradients-for-bias-terms-in-backpropagation
         // The gradient of the bias is equal to the delta term of the backpropagation algorithm
         let bias_gradient = delta;

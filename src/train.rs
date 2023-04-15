@@ -2,7 +2,7 @@ use crate::{
     algebra::NeuraVectorSpace, derivable::NeuraLoss, layer::NeuraLayer, network::NeuraNetwork,
 };
 
-// TODO: move this to layer/mod.rs
+// TODO: move this trait to layer/mod.rs
 pub trait NeuraTrainableLayer: NeuraLayer {
     type Delta: NeuraVectorSpace;
 
@@ -29,7 +29,7 @@ pub trait NeuraTrainableLayer: NeuraLayer {
     /// Applies `δW_l` to the weights of the layer
     fn apply_gradient(&mut self, gradient: &Self::Delta);
 
-    /// Called before an epoch begins, to allow the layer to set itself up for training.
+    /// Called before an iteration begins, to allow the layer to set itself up for training.
     #[inline(always)]
     fn prepare_epoch(&mut self) {}
 
@@ -54,7 +54,7 @@ pub trait NeuraTrainable: NeuraLayer {
     /// Should return the regularization gradient
     fn regularize(&self) -> Self::Delta;
 
-    /// Called before an epoch begins, to allow the network to set itself up for training.
+    /// Called before an iteration begins, to allow the network to set itself up for training.
     fn prepare_epoch(&mut self);
 
     /// Called at the end of training, to allow the network to clean itself up
@@ -116,7 +116,8 @@ impl<const N: usize, Loss: NeuraLoss<Input = [f64; N]> + Clone>
     where
         NeuraNetwork<Layer, ChildNetwork>: NeuraTrainable<Input = Layer::Input, Output = [f64; N]>,
     {
-        self.loss.eval(target, &trainable.eval(&input))
+        let output = trainable.eval(&input);
+        self.loss.eval(target, &output)
     }
 }
 
@@ -138,15 +139,17 @@ pub struct NeuraBatchedTrainer {
     /// How many gradient computations to average before updating the weights
     pub batch_size: usize,
 
-    /// How many batches to run for; if `epochs * batch_size` exceeds the input length, then training will stop.
+    /// How many batches to run for; if `iterations * batch_size` exceeds the input length, then training will stop.
     /// You should use `cycle_shuffling` from the `prelude` module to avoid this.
-    pub epochs: usize,
+    ///
+    /// Note that this is different from epochs, which count how many times the dataset has been fully iterated over.
+    pub iterations: usize,
 
-    /// The trainer will log progress at every multiple of `log_epochs` steps.
-    /// If `log_epochs` is zero (default), then no progress will be logged.
+    /// The trainer will log progress at every multiple of `log_iterations` iterations.
+    /// If `log_iterations` is zero (default), then no progress will be logged.
     ///
     /// The test inputs is used to measure the score of the network.
-    pub log_epochs: usize,
+    pub log_iterations: usize,
 }
 
 impl Default for NeuraBatchedTrainer {
@@ -155,17 +158,17 @@ impl Default for NeuraBatchedTrainer {
             learning_rate: 0.1,
             learning_momentum: 0.0,
             batch_size: 100,
-            epochs: 100,
-            log_epochs: 0,
+            iterations: 100,
+            log_iterations: 0,
         }
     }
 }
 
 impl NeuraBatchedTrainer {
-    pub fn new(learning_rate: f64, epochs: usize) -> Self {
+    pub fn new(learning_rate: f64, iterations: usize) -> Self {
         Self {
             learning_rate,
-            epochs,
+            iterations,
             ..Default::default()
         }
     }
@@ -195,7 +198,7 @@ impl NeuraBatchedTrainer {
         // Contains `momentum_factor * factor * gradient_sum_previous_iter`
         let mut previous_gradient_sum =
             <NeuraNetwork<Layer, ChildNetwork> as NeuraTrainable>::Delta::zero();
-        'd: for epoch in 0..self.epochs {
+        'd: for iteration in 0..self.iterations {
             let mut gradient_sum =
                 <NeuraNetwork<Layer, ChildNetwork> as NeuraTrainable>::Delta::zero();
             network.prepare_epoch();
@@ -211,7 +214,7 @@ impl NeuraBatchedTrainer {
 
             gradient_sum.mul_assign(factor);
 
-            // Add regularization gradient (TODO: check if it can be factored out of momentum)
+            // Add regularization gradient
             let mut reg_gradient = network.regularize();
             reg_gradient.mul_assign(reg_factor);
             gradient_sum.add_assign(&reg_gradient);
@@ -224,14 +227,14 @@ impl NeuraBatchedTrainer {
                 previous_gradient_sum.mul_assign(momentum_factor);
             }
 
-            if self.log_epochs > 0 && (epoch + 1) % self.log_epochs == 0 {
+            if self.log_iterations > 0 && (iteration + 1) % self.log_iterations == 0 {
                 network.cleanup();
                 let mut loss_sum = 0.0;
                 for (input, target) in test_inputs {
                     loss_sum += gradient_solver.score(&network, input, target);
                 }
                 loss_sum /= test_inputs.len() as f64;
-                println!("Epoch {}, Loss: {:.3}", epoch + 1, loss_sum);
+                println!("Iteration {}, Loss: {:.3}", iteration + 1, loss_sum);
             }
         }
 
@@ -243,8 +246,11 @@ impl NeuraBatchedTrainer {
 mod test {
     use super::*;
     use crate::{
+        assert_approx,
         derivable::{activation::Linear, loss::Euclidean, regularize::NeuraL0},
         layer::NeuraDenseLayer,
+        network::NeuraNetworkTail,
+        neura_network,
     };
 
     #[test]
@@ -262,5 +268,41 @@ mod test {
                 assert!((gradient.0[0][1] - expected) < 0.001);
             }
         }
+    }
+
+    #[test]
+    fn test_backpropagation_complex() {
+        const EPSILON: f64 = 0.00001;
+        // Test that we get the same values as https://hmkcode.com/ai/backpropagation-step-by-step/
+        let network = neura_network![
+            NeuraDenseLayer::new([[0.11, 0.21], [0.12, 0.08]], [0.0; 2], Linear, NeuraL0),
+            NeuraDenseLayer::new([[0.14, 0.15]], [0.0], Linear, NeuraL0)
+        ];
+
+        let input = [2.0, 3.0];
+        let target = [1.0];
+
+        let intermediary = network.clone().trim_tail().eval(&input);
+        assert_approx!(0.85, intermediary[0], EPSILON);
+        assert_approx!(0.48, intermediary[1], EPSILON);
+        assert_approx!(0.191, network.eval(&input)[0], EPSILON);
+
+        assert_approx!(0.327, Euclidean.eval(&target, &network.eval(&input)), 0.001);
+
+        let delta = network.eval(&input)[0] - target[0];
+
+        let (gradient_first, gradient_second) =
+            NeuraBackprop::new(Euclidean).get_gradient(&network, &input, &target);
+        let gradient_first = gradient_first.0;
+        let gradient_second = gradient_second.0[0];
+
+        assert_approx!(gradient_second[0], intermediary[0] * delta, EPSILON);
+        assert_approx!(gradient_second[1], intermediary[1] * delta, EPSILON);
+
+        assert_approx!(gradient_first[0][0], input[0] * delta * 0.14, EPSILON);
+        assert_approx!(gradient_first[0][1], input[1] * delta * 0.14, EPSILON);
+
+        assert_approx!(gradient_first[1][0], input[0] * delta * 0.15, EPSILON);
+        assert_approx!(gradient_first[1][1], input[1] * delta * 0.15, EPSILON);
     }
 }
