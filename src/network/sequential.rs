@@ -1,16 +1,26 @@
 use crate::{
     derivable::NeuraLoss,
-    layer::NeuraLayer,
-    train::{NeuraTrainable, NeuraTrainableLayer},
+    layer::{NeuraLayer, NeuraTrainableLayer},
 };
 
+use super::NeuraTrainableNetwork;
+
 #[derive(Clone, Debug)]
-pub struct NeuraNetwork<Layer: NeuraLayer, ChildNetwork> {
+pub struct NeuraSequential<Layer: NeuraLayer, ChildNetwork> {
     pub layer: Layer,
     pub child_network: ChildNetwork,
 }
 
-impl<Layer: NeuraLayer, ChildNetwork> NeuraNetwork<Layer, ChildNetwork> {
+/// Operations on the tail end of a sequential network
+pub trait NeuraSequentialTail {
+    type TailTrimmed;
+    type TailPushed<T: NeuraLayer>;
+
+    fn trim_tail(self) -> Self::TailTrimmed;
+    fn push_tail<T: NeuraLayer>(self, layer: T) -> Self::TailPushed<T>;
+}
+
+impl<Layer: NeuraLayer, ChildNetwork> NeuraSequential<Layer, ChildNetwork> {
     pub fn new(layer: Layer, child_network: ChildNetwork) -> Self {
         Self {
             layer,
@@ -29,36 +39,27 @@ impl<Layer: NeuraLayer, ChildNetwork> NeuraNetwork<Layer, ChildNetwork> {
         self.child_network
     }
 
-    pub fn push_front<T: NeuraLayer>(self, layer: T) -> NeuraNetwork<T, Self> {
-        NeuraNetwork {
+    pub fn push_front<T: NeuraLayer>(self, layer: T) -> NeuraSequential<T, Self> {
+        NeuraSequential {
             layer: layer,
             child_network: self,
         }
     }
 }
 
-/// Operations on the tail end of the network
-pub trait NeuraNetworkTail {
-    type TailTrimmed;
-    type TailPushed<T: NeuraLayer>;
-
-    fn trim_tail(self) -> Self::TailTrimmed;
-    fn push_tail<T: NeuraLayer>(self, layer: T) -> Self::TailPushed<T>;
-}
-
 // Trimming the last layer returns an empty network
-impl<Layer: NeuraLayer> NeuraNetworkTail for NeuraNetwork<Layer, ()> {
+impl<Layer: NeuraLayer> NeuraSequentialTail for NeuraSequential<Layer, ()> {
     type TailTrimmed = ();
-    type TailPushed<T: NeuraLayer> = NeuraNetwork<Layer, NeuraNetwork<T, ()>>;
+    type TailPushed<T: NeuraLayer> = NeuraSequential<Layer, NeuraSequential<T, ()>>;
 
     fn trim_tail(self) -> Self::TailTrimmed {
         ()
     }
 
     fn push_tail<T: NeuraLayer>(self, layer: T) -> Self::TailPushed<T> {
-        NeuraNetwork {
+        NeuraSequential {
             layer: self.layer,
-            child_network: NeuraNetwork {
+            child_network: NeuraSequential {
                 layer,
                 child_network: (),
             },
@@ -67,29 +68,29 @@ impl<Layer: NeuraLayer> NeuraNetworkTail for NeuraNetwork<Layer, ()> {
 }
 
 // Trimming another layer returns a network which calls trim recursively
-impl<Layer: NeuraLayer, ChildNetwork: NeuraNetworkTail> NeuraNetworkTail
-    for NeuraNetwork<Layer, ChildNetwork>
+impl<Layer: NeuraLayer, ChildNetwork: NeuraSequentialTail> NeuraSequentialTail
+    for NeuraSequential<Layer, ChildNetwork>
 {
-    type TailTrimmed = NeuraNetwork<Layer, <ChildNetwork as NeuraNetworkTail>::TailTrimmed>;
+    type TailTrimmed = NeuraSequential<Layer, <ChildNetwork as NeuraSequentialTail>::TailTrimmed>;
     type TailPushed<T: NeuraLayer> =
-        NeuraNetwork<Layer, <ChildNetwork as NeuraNetworkTail>::TailPushed<T>>;
+        NeuraSequential<Layer, <ChildNetwork as NeuraSequentialTail>::TailPushed<T>>;
 
     fn trim_tail(self) -> Self::TailTrimmed {
-        NeuraNetwork {
+        NeuraSequential {
             layer: self.layer,
             child_network: self.child_network.trim_tail(),
         }
     }
 
     fn push_tail<T: NeuraLayer>(self, layer: T) -> Self::TailPushed<T> {
-        NeuraNetwork {
+        NeuraSequential {
             layer: self.layer,
             child_network: self.child_network.push_tail(layer),
         }
     }
 }
 
-impl<Layer: NeuraLayer> NeuraLayer for NeuraNetwork<Layer, ()> {
+impl<Layer: NeuraLayer> NeuraLayer for NeuraSequential<Layer, ()> {
     type Input = Layer::Input;
     type Output = Layer::Output;
 
@@ -99,7 +100,7 @@ impl<Layer: NeuraLayer> NeuraLayer for NeuraNetwork<Layer, ()> {
 }
 
 impl<Layer: NeuraLayer, ChildNetwork: NeuraLayer<Input = Layer::Output>> NeuraLayer
-    for NeuraNetwork<Layer, ChildNetwork>
+    for NeuraSequential<Layer, ChildNetwork>
 {
     type Input = Layer::Input;
 
@@ -110,7 +111,7 @@ impl<Layer: NeuraLayer, ChildNetwork: NeuraLayer<Input = Layer::Output>> NeuraLa
     }
 }
 
-impl<Layer: NeuraTrainableLayer> NeuraTrainable for NeuraNetwork<Layer, ()> {
+impl<Layer: NeuraTrainableLayer> NeuraTrainableNetwork for NeuraSequential<Layer, ()> {
     type Delta = Layer::Delta;
 
     fn apply_gradient(&mut self, gradient: &Self::Delta) {
@@ -141,8 +142,8 @@ impl<Layer: NeuraTrainableLayer> NeuraTrainable for NeuraNetwork<Layer, ()> {
     }
 }
 
-impl<Layer: NeuraTrainableLayer, ChildNetwork: NeuraTrainable<Input = Layer::Output>> NeuraTrainable
-    for NeuraNetwork<Layer, ChildNetwork>
+impl<Layer: NeuraTrainableLayer, ChildNetwork: NeuraTrainableNetwork<Input = Layer::Output>>
+    NeuraTrainableNetwork for NeuraSequential<Layer, ChildNetwork>
 {
     type Delta = (Layer::Delta, ChildNetwork::Delta);
 
@@ -182,7 +183,7 @@ impl<Layer: NeuraTrainableLayer, ChildNetwork: NeuraTrainable<Input = Layer::Out
     }
 }
 
-impl<Layer: NeuraLayer> From<Layer> for NeuraNetwork<Layer, ()> {
+impl<Layer: NeuraLayer> From<Layer> for NeuraSequential<Layer, ()> {
     fn from(layer: Layer) -> Self {
         Self {
             layer,
@@ -191,18 +192,20 @@ impl<Layer: NeuraLayer> From<Layer> for NeuraNetwork<Layer, ()> {
     }
 }
 
+/// An utility to recursively create a NeuraSequential network, while writing it in a declarative and linear fashion.
+/// Note that this can quickly create big and unwieldly types.
 #[macro_export]
-macro_rules! neura_network {
+macro_rules! neura_sequential {
     [] => {
         ()
     };
 
     [ $layer:expr $(,)? ] => {
-        $crate::network::NeuraNetwork::from($layer)
+        $crate::network::sequential::NeuraSequential::from($layer)
     };
 
     [ $first:expr, $($rest:expr),+ $(,)? ] => {
-        $crate::network::NeuraNetwork::new_match_output($first, neura_network![$($rest),+])
+        $crate::network::sequential::NeuraSequential::new_match_output($first, neura_sequential![$($rest),+])
     };
 }
 
@@ -218,22 +221,22 @@ mod test {
     fn test_neura_network_macro() {
         let mut rng = rand::thread_rng();
 
-        let _ = neura_network![
+        let _ = neura_sequential![
             NeuraDenseLayer::from_rng(&mut rng, Relu, NeuraL0) as NeuraDenseLayer<_, _, 8, 16>,
             NeuraDenseLayer::from_rng(&mut rng, Relu, NeuraL0) as NeuraDenseLayer<_, _, _, 12>,
             NeuraDenseLayer::from_rng(&mut rng, Relu, NeuraL0) as NeuraDenseLayer<_, _, _, 2>
         ];
 
-        let _ = neura_network![
+        let _ = neura_sequential![
             NeuraDenseLayer::from_rng(&mut rng, Relu, NeuraL0) as NeuraDenseLayer<_, _, 8, 16>,
         ];
 
-        let _ = neura_network![
+        let _ = neura_sequential![
             NeuraDenseLayer::from_rng(&mut rng, Relu, NeuraL0) as NeuraDenseLayer<_, _, 8, 16>,
             NeuraDenseLayer::from_rng(&mut rng, Relu, NeuraL0) as NeuraDenseLayer<_, _, _, 12>,
         ];
 
-        let _ = neura_network![
+        let _ = neura_sequential![
             neura_layer!("dense", 8, 16; Relu),
             neura_layer!("dense", 12; Relu),
             neura_layer!("dense", 2; Relu)

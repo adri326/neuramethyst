@@ -1,8 +1,6 @@
 use rand::Rng;
 
-use crate::train::NeuraTrainableLayer;
-
-use super::NeuraLayer;
+use super::{NeuraLayer, NeuraTrainableLayer};
 
 #[derive(Clone, Debug)]
 pub struct NeuraDropoutLayer<const LENGTH: usize, R: Rng> {

@@ -5,7 +5,7 @@ use neuramethyst::derivable::loss::Euclidean;
 use neuramethyst::prelude::*;
 
 fn main() {
-    let mut network = neura_network![
+    let mut network = neura_sequential![
         neura_layer!("dense", 2, 4; Relu),
         neura_layer!("dense", 3; Relu),
         neura_layer!("dense", 1; Relu)

@@ -1,6 +1,4 @@
-use crate::train::NeuraTrainableLayer;
-
-use super::NeuraLayer;
+use super::{NeuraLayer, NeuraTrainableLayer};
 
 /// A special layer that allows you to split a vector into one-hot vectors
 #[derive(Debug, Clone, PartialEq)]

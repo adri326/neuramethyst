@@ -1,6 +1,6 @@
-use crate::{train::NeuraTrainableLayer, utils::multiply_vectors_pointwise};
+use crate::utils::multiply_vectors_pointwise;
 
-use super::NeuraLayer;
+use super::{NeuraLayer, NeuraTrainableLayer};
 
 #[non_exhaustive]
 #[derive(Clone, Debug)]

@@ -1,8 +1,7 @@
-use super::NeuraLayer;
+use super::{NeuraLayer, NeuraTrainableLayer};
 use crate::{
     algebra::NeuraVectorSpace,
     derivable::NeuraDerivable,
-    train::NeuraTrainableLayer,
     utils::{multiply_matrix_transpose_vector, multiply_matrix_vector, reverse_dot_product},
 };
 

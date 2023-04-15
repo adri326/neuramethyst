@@ -11,7 +11,7 @@ use neuramethyst::prelude::*;
 use rand::Rng;
 
 fn main() {
-    let mut network = neura_network![
+    let mut network = neura_sequential![
         neura_layer!("dense", 2, 8; Relu, NeuraL1(0.001)),
         neura_layer!("dropout", 0.25),
         neura_layer!("dense", 2; Linear, NeuraL1(0.001)),
