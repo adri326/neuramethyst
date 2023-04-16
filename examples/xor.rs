@@ -1,8 +1,9 @@
 #![feature(generic_arg_infer)]
 
+use neuramethyst::algebra::NeuraVector;
 use neuramethyst::derivable::activation::Relu;
 use neuramethyst::derivable::loss::Euclidean;
-use neuramethyst::prelude::*;
+use neuramethyst::{cycle_shuffling, prelude::*};
 
 fn main() {
     let mut network = neura_sequential![
@@ -11,14 +12,14 @@ fn main() {
         neura_layer!("dense", 1; Relu)
     ];
 
-    let inputs = [
-        ([0.0, 0.0], [0.0]),
-        ([0.0, 1.0], [1.0]),
-        ([1.0, 0.0], [1.0]),
-        ([1.0, 1.0], [0.0]),
+    let inputs: [(NeuraVector<2, f64>, NeuraVector<1, f64>); 4] = [
+        ([0.0, 0.0].into(), [0.0].into()),
+        ([0.0, 1.0].into(), [1.0].into()),
+        ([1.0, 0.0].into(), [1.0].into()),
+        ([1.0, 1.0].into(), [0.0].into()),
     ];
 
-    for (input, target) in inputs {
+    for (input, target) in &inputs {
         println!(
             "Input: {:?}, target: {}, actual: {:.3}",
             &input,

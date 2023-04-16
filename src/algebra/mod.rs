@@ -1,3 +1,9 @@
+mod matrix;
+pub use matrix::NeuraMatrix;
+
+mod vector;
+pub use vector::NeuraVector;
+
 /// An extension of `std::ops::AddAssign` and `std::ops::Default`
 pub trait NeuraVectorSpace {
     fn add_assign(&mut self, other: &Self);
@@ -27,6 +33,24 @@ impl NeuraVectorSpace for () {
 
     fn norm_squared(&self) -> f64 {
         0.0
+    }
+}
+
+impl<T: NeuraVectorSpace> NeuraVectorSpace for Box<T> {
+    fn add_assign(&mut self, other: &Self) {
+        self.as_mut().add_assign(other.as_ref());
+    }
+
+    fn mul_assign(&mut self, by: f64) {
+        self.as_mut().mul_assign(by);
+    }
+
+    fn zero() -> Self {
+        Box::new(T::zero())
+    }
+
+    fn norm_squared(&self) -> f64 {
+        self.as_ref().norm_squared()
     }
 }
 

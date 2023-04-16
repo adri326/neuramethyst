@@ -1,12 +1,14 @@
 use rand::Rng;
 
+use crate::algebra::NeuraVector;
+
 use super::{NeuraLayer, NeuraTrainableLayer};
 
 #[derive(Clone, Debug)]
 pub struct NeuraDropoutLayer<const LENGTH: usize, R: Rng> {
     pub dropout_probability: f64,
     multiplier: f64,
-    mask: [bool; LENGTH],
+    mask: NeuraVector<LENGTH, bool>,
     rng: R,
 }
 
@@ -15,12 +17,12 @@ impl<const LENGTH: usize, R: Rng> NeuraDropoutLayer<LENGTH, R> {
         Self {
             dropout_probability,
             multiplier: 1.0,
-            mask: [false; LENGTH],
+            mask: NeuraVector::from_value(false),
             rng,
         }
     }
 
-    fn apply_dropout(&self, vector: &mut [f64; LENGTH]) {
+    fn apply_dropout(&self, vector: &mut NeuraVector<LENGTH, f64>) {
         for (index, &dropout) in self.mask.iter().enumerate() {
             if dropout {
                 vector[index] = 0.0;
@@ -32,8 +34,8 @@ impl<const LENGTH: usize, R: Rng> NeuraDropoutLayer<LENGTH, R> {
 }
 
 impl<const LENGTH: usize, R: Rng> NeuraLayer for NeuraDropoutLayer<LENGTH, R> {
-    type Input = [f64; LENGTH];
-    type Output = [f64; LENGTH];
+    type Input = NeuraVector<LENGTH, f64>;
+    type Output = NeuraVector<LENGTH, f64>;
 
     fn eval(&self, input: &Self::Input) -> Self::Output {
         let mut result = input.clone();
@@ -83,7 +85,7 @@ impl<const LENGTH: usize, R: Rng> NeuraTrainableLayer for NeuraDropoutLayer<LENG
     }
 
     fn cleanup(&mut self) {
-        self.mask = [false; LENGTH];
+        self.mask = NeuraVector::from_value(false);
         self.multiplier = 1.0;
     }
 }

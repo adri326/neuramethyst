@@ -1,79 +1,4 @@
-pub(crate) fn multiply_matrix_vector<const WIDTH: usize, const HEIGHT: usize>(
-    matrix: &[[f64; WIDTH]; HEIGHT],
-    vector: &[f64; WIDTH],
-) -> [f64; HEIGHT] {
-    let mut result = [0.0; HEIGHT];
-
-    for i in 0..HEIGHT {
-        let mut sum = 0.0;
-        for k in 0..WIDTH {
-            sum += matrix[i][k] * vector[k];
-        }
-        result[i] = sum;
-    }
-
-    result
-}
-
-/// Equivalent to `multiply_matrix_vector(transpose(matrix), vector)`.
-pub(crate) fn multiply_matrix_transpose_vector<const WIDTH: usize, const HEIGHT: usize>(
-    matrix: &[[f64; WIDTH]; HEIGHT],
-    vector: &[f64; HEIGHT],
-) -> [f64; WIDTH] {
-    let mut result = [0.0; WIDTH];
-
-    for i in 0..WIDTH {
-        let mut sum = 0.0;
-        for k in 0..HEIGHT {
-            sum += matrix[k][i] * vector[k];
-        }
-        result[i] = sum;
-    }
-
-    result
-}
-
-// Returns $left^{\top} \cdot right$, ie. $\ket{left} \bra{right}$
-pub(crate) fn reverse_dot_product<const WIDTH: usize, const HEIGHT: usize>(
-    left: &[f64; HEIGHT],
-    right: &[f64; WIDTH],
-) -> [[f64; WIDTH]; HEIGHT] {
-    let mut result = [[0.0; WIDTH]; HEIGHT];
-
-    for i in 0..HEIGHT {
-        for j in 0..WIDTH {
-            result[i][j] = left[i] * right[j];
-        }
-    }
-
-    result
-}
-
-pub(crate) fn multiply_vectors_pointwise<const LENGTH: usize>(
-    left: &[f64; LENGTH],
-    right: &[f64; LENGTH],
-) -> [f64; LENGTH] {
-    let mut result = [0.0; LENGTH];
-
-    for i in 0..LENGTH {
-        result[i] = left[i] * right[i];
-    }
-
-    result
-}
-
-#[cfg(test)]
-pub(crate) fn matrix_from_diagonal<const LENGTH: usize>(
-    vector: &[f64; LENGTH],
-) -> [[f64; LENGTH]; LENGTH] {
-    let mut result = [[0.0; LENGTH]; LENGTH];
-
-    for i in 0..LENGTH {
-        result[i][i] = vector[i];
-    }
-
-    result
-}
+use crate::algebra::NeuraVector;
 
 #[allow(dead_code)]
 pub(crate) fn assign_add_vector<const N: usize>(sum: &mut [f64; N], operand: &[f64; N]) {
@@ -164,9 +89,10 @@ where
 }
 
 #[cfg(test)]
-pub(crate) fn uniform_vector<const LENGTH: usize>() -> [f64; LENGTH] {
+pub(crate) fn uniform_vector<const LENGTH: usize>() -> NeuraVector<LENGTH, f64> {
     use rand::Rng;
-    let mut res = [0.0; LENGTH];
+
+    let mut res: NeuraVector<LENGTH, f64> = NeuraVector::default();
     let mut rng = rand::thread_rng();
 
     for i in 0..LENGTH {
@@ -176,8 +102,8 @@ pub(crate) fn uniform_vector<const LENGTH: usize>() -> [f64; LENGTH] {
     res
 }
 
-pub fn one_hot<const N: usize>(value: usize) -> [f64; N] {
-    let mut res = [0.0; N];
+pub fn one_hot<const N: usize>(value: usize) -> NeuraVector<N, f64> {
+    let mut res = NeuraVector::default();
     if value < N {
         res[value] = 1.0;
     }
@@ -194,25 +120,6 @@ pub fn argmax(array: &[f64]) -> usize {
     }
 
     res
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    fn test_reverse_dot_product() {
-        let left = [2.0, 3.0, 5.0];
-        let right = [7.0, 11.0, 13.0, 17.0];
-
-        let expected = [
-            [14.0, 22.0, 26.0, 34.0],
-            [21.0, 33.0, 39.0, 51.0],
-            [35.0, 55.0, 65.0, 85.0],
-        ];
-
-        assert_eq!(expected, reverse_dot_product(&left, &right));
-    }
 }
 
 #[cfg(test)]

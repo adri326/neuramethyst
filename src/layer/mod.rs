@@ -10,6 +10,12 @@ pub use softmax::NeuraSoftmaxLayer;
 mod one_hot;
 pub use one_hot::NeuraOneHotLayer;
 
+// mod reshape;
+// pub use reshape::{
+//     NeuraFlattenLayer,
+//     NeuraReshapeLayer
+// };
+
 mod lock;
 pub use lock::NeuraLockLayer;
 
@@ -98,4 +104,20 @@ macro_rules! neura_layer {
     ( "lock", $layer:expr ) => {
         $crate::layer::NeuraLockLayer($layer)
     };
+
+    // ( "flatten" ) => {
+    //     $crate::layer::NeuraFlattenLayer::new() as $crate::layer::NeuraFlattenLayer<_, _, f64>
+    // };
+
+    // ( "flatten", $width:expr, $height:expr ) => {
+    //     $crate::layer::NeuraFlattenLayer::new() as $crate::layer::NeuraFlattenLayer<$width, $height, f64>
+    // };
+
+    // ( "reshape", $height:expr ) => {
+    //     $crate::layer::NeuraReshapeLayer::new() as $crate::layer::NeuraReshapeLayer<_, $height, f64>
+    // };
+
+    // ( "reshape", $width:expr, $height:expr ) => {
+    //     $crate::layer::NeuraReshapeLayer::new() as $crate::layer::NeuraReshapeLayer<$width, $height, f64>
+    // };
 }

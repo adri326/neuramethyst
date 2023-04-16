@@ -1,5 +1,5 @@
 use crate::{
-    algebra::NeuraVectorSpace,
+    algebra::{NeuraVector, NeuraVectorSpace},
     derivable::NeuraLoss,
     layer::NeuraLayer,
     network::{sequential::NeuraSequential, NeuraTrainableNetwork},
@@ -38,8 +38,8 @@ impl<Loss: NeuraLoss + Clone> NeuraBackprop<Loss> {
     }
 }
 
-impl<const N: usize, Loss: NeuraLoss<Input = [f64; N]> + Clone>
-    NeuraGradientSolver<[f64; N], Loss::Target> for NeuraBackprop<Loss>
+impl<const N: usize, Loss: NeuraLoss<Input = NeuraVector<N, f64>> + Clone>
+    NeuraGradientSolver<NeuraVector<N, f64>, Loss::Target> for NeuraBackprop<Loss>
 {
     fn get_gradient<Layer: NeuraLayer, ChildNetwork>(
         &self,
@@ -49,7 +49,7 @@ impl<const N: usize, Loss: NeuraLoss<Input = [f64; N]> + Clone>
     ) -> <NeuraSequential<Layer, ChildNetwork> as NeuraTrainableNetwork>::Delta
     where
         NeuraSequential<Layer, ChildNetwork>:
-            NeuraTrainableNetwork<Input = Layer::Input, Output = [f64; N]>,
+            NeuraTrainableNetwork<Input = Layer::Input, Output = NeuraVector<N, f64>>,
     {
         trainable.backpropagate(input, target, self.loss.clone()).1
     }
@@ -62,7 +62,7 @@ impl<const N: usize, Loss: NeuraLoss<Input = [f64; N]> + Clone>
     ) -> f64
     where
         NeuraSequential<Layer, ChildNetwork>:
-            NeuraTrainableNetwork<Input = Layer::Input, Output = [f64; N]>,
+            NeuraTrainableNetwork<Input = Layer::Input, Output = NeuraVector<N, f64>>,
     {
         let output = trainable.eval(&input);
         self.loss.eval(target, &output)
@@ -146,15 +146,17 @@ impl NeuraBatchedTrainer {
 
         // Contains `momentum_factor * factor * gradient_sum_previous_iter`
         let mut previous_gradient_sum =
-            <NeuraSequential<Layer, ChildNetwork> as NeuraTrainableNetwork>::Delta::zero();
+            Box::<<NeuraSequential<Layer, ChildNetwork> as NeuraTrainableNetwork>::Delta>::zero();
         'd: for iteration in 0..self.iterations {
-            let mut gradient_sum =
-                <NeuraSequential<Layer, ChildNetwork> as NeuraTrainableNetwork>::Delta::zero();
+            let mut gradient_sum = Box::<
+                <NeuraSequential<Layer, ChildNetwork> as NeuraTrainableNetwork>::Delta,
+            >::zero();
             network.prepare_epoch();
 
             for _ in 0..self.batch_size {
                 if let Some((input, target)) = iter.next() {
-                    let gradient = gradient_solver.get_gradient(&network, &input, &target);
+                    let gradient =
+                        Box::new(gradient_solver.get_gradient(&network, &input, &target));
                     gradient_sum.add_assign(&gradient);
                 } else {
                     break 'd;
@@ -164,7 +166,7 @@ impl NeuraBatchedTrainer {
             gradient_sum.mul_assign(factor);
 
             // Add regularization gradient
-            let mut reg_gradient = network.regularize();
+            let mut reg_gradient = Box::new(network.regularize());
             reg_gradient.mul_assign(reg_factor);
             gradient_sum.add_assign(&reg_gradient);
 
@@ -207,12 +209,15 @@ mod test {
         for wa in [0.0, 0.25, 0.5, 1.0] {
             for wb in [0.0, 0.25, 0.5, 1.0] {
                 let network = NeuraSequential::new(
-                    NeuraDenseLayer::new([[wa, wb]], [0.0], Linear, NeuraL0),
+                    NeuraDenseLayer::new([[wa, wb]].into(), [0.0].into(), Linear, NeuraL0),
                     (),
                 );
 
-                let gradient =
-                    NeuraBackprop::new(Euclidean).get_gradient(&network, &[1.0, 1.0], &[0.0]);
+                let gradient = NeuraBackprop::new(Euclidean).get_gradient(
+                    &network,
+                    &[1.0, 1.0].into(),
+                    &[0.0].into(),
+                );
 
                 let expected = wa + wb;
                 assert!((gradient.0[0][0] - expected) < 0.001);
@@ -226,24 +231,33 @@ mod test {
         const EPSILON: f64 = 0.00001;
         // Test that we get the same values as https://hmkcode.com/ai/backpropagation-step-by-step/
         let network = neura_sequential![
-            NeuraDenseLayer::new([[0.11, 0.21], [0.12, 0.08]], [0.0; 2], Linear, NeuraL0),
-            NeuraDenseLayer::new([[0.14, 0.15]], [0.0], Linear, NeuraL0)
+            NeuraDenseLayer::new(
+                [[0.11, 0.21], [0.12, 0.08]].into(),
+                [0.0; 2].into(),
+                Linear,
+                NeuraL0
+            ),
+            NeuraDenseLayer::new([[0.14, 0.15]].into(), [0.0].into(), Linear, NeuraL0)
         ];
 
         let input = [2.0, 3.0];
         let target = [1.0];
 
-        let intermediary = network.clone().trim_tail().eval(&input);
+        let intermediary = network.clone().trim_tail().eval(&input.into());
         assert_approx!(0.85, intermediary[0], EPSILON);
         assert_approx!(0.48, intermediary[1], EPSILON);
-        assert_approx!(0.191, network.eval(&input)[0], EPSILON);
+        assert_approx!(0.191, network.eval(&input.into())[0], EPSILON);
 
-        assert_approx!(0.327, Euclidean.eval(&target, &network.eval(&input)), 0.001);
+        assert_approx!(
+            0.327,
+            Euclidean.eval(&target.into(), &network.eval(&input.into())),
+            0.001
+        );
 
-        let delta = network.eval(&input)[0] - target[0];
+        let delta = network.eval(&input.into())[0] - target[0];
 
         let (gradient_first, gradient_second) =
-            NeuraBackprop::new(Euclidean).get_gradient(&network, &input, &target);
+            NeuraBackprop::new(Euclidean).get_gradient(&network, &input.into(), &target.into());
         let gradient_first = gradient_first.0;
         let gradient_second = gradient_second.0[0];
 

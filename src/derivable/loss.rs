@@ -1,14 +1,16 @@
+use crate::algebra::NeuraVector;
+
 use super::NeuraLoss;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Euclidean<const N: usize>;
 
 impl<const N: usize> NeuraLoss for Euclidean<N> {
-    type Input = [f64; N];
-    type Target = [f64; N];
+    type Input = NeuraVector<N, f64>;
+    type Target = NeuraVector<N, f64>;
 
     #[inline]
-    fn eval(&self, target: &[f64; N], actual: &[f64; N]) -> f64 {
+    fn eval(&self, target: &NeuraVector<N, f64>, actual: &NeuraVector<N, f64>) -> f64 {
         let mut sum_squared = 0.0;
 
         for i in 0..N {
@@ -19,8 +21,12 @@ impl<const N: usize> NeuraLoss for Euclidean<N> {
     }
 
     #[inline]
-    fn nabla(&self, target: &[f64; N], actual: &[f64; N]) -> [f64; N] {
-        let mut res = [0.0; N];
+    fn nabla(
+        &self,
+        target: &NeuraVector<N, f64>,
+        actual: &NeuraVector<N, f64>,
+    ) -> NeuraVector<N, f64> {
+        let mut res = NeuraVector::default();
 
         // ∂E(y)/∂yᵢ = yᵢ - yᵢ'
         for i in 0..N {
@@ -57,8 +63,8 @@ impl<const N: usize> CrossEntropy<N> {
 }
 
 impl<const N: usize> NeuraLoss for CrossEntropy<N> {
-    type Input = [f64; N];
-    type Target = [f64; N];
+    type Input = NeuraVector<N, f64>;
+    type Target = NeuraVector<N, f64>;
 
     fn eval(&self, target: &Self::Target, actual: &Self::Input) -> f64 {
         let mut result = 0.0;
@@ -71,7 +77,7 @@ impl<const N: usize> NeuraLoss for CrossEntropy<N> {
     }
 
     fn nabla(&self, target: &Self::Target, actual: &Self::Input) -> Self::Input {
-        let mut result = [0.0; N];
+        let mut result = NeuraVector::default();
 
         for i in 0..N {
             result[i] = self.derivate_single(target[i], actual[i]);

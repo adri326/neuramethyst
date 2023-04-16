@@ -31,7 +31,7 @@ fn main() {
             (angle.cos() * radius, angle.sin() * radius)
         };
 
-        ([x, y], neuramethyst::one_hot::<2>(category))
+        ([x, y].into(), neuramethyst::one_hot::<2>(category))
     });
 
     let test_inputs: Vec<_> = inputs.clone().take(10).collect();
@@ -49,7 +49,10 @@ fn main() {
             );
 
             let network = network.clone();
-            draw_neuron_activation(|input| network.eval(&input).into_iter().collect(), 6.0);
+            draw_neuron_activation(
+                |input| network.eval(&input.into()).into_iter().collect(),
+                6.0,
+            );
             println!("{}", epoch);
 
             std::thread::sleep(std::time::Duration::new(0, 50_000_000));
@@ -72,7 +75,7 @@ fn main() {
 
     let mut file = std::fs::File::create("target/bivariate.csv").unwrap();
     for (input, _target) in test_inputs {
-        let guess = neuramethyst::argmax(&network.eval(&input));
+        let guess = neuramethyst::argmax(network.eval(&input).as_ref());
         writeln!(&mut file, "{},{},{}", input[0], input[1], guess).unwrap();
     }
 }

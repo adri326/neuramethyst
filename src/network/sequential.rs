@@ -8,7 +8,7 @@ use super::NeuraTrainableNetwork;
 #[derive(Clone, Debug)]
 pub struct NeuraSequential<Layer: NeuraLayer, ChildNetwork> {
     pub layer: Layer,
-    pub child_network: ChildNetwork,
+    pub child_network: Box<ChildNetwork>,
 }
 
 /// Operations on the tail end of a sequential network
@@ -24,7 +24,7 @@ impl<Layer: NeuraLayer, ChildNetwork> NeuraSequential<Layer, ChildNetwork> {
     pub fn new(layer: Layer, child_network: ChildNetwork) -> Self {
         Self {
             layer,
-            child_network,
+            child_network: Box::new(child_network),
         }
     }
 
@@ -36,13 +36,13 @@ impl<Layer: NeuraLayer, ChildNetwork> NeuraSequential<Layer, ChildNetwork> {
     }
 
     pub fn trim_front(self) -> ChildNetwork {
-        self.child_network
+        *self.child_network
     }
 
     pub fn push_front<T: NeuraLayer>(self, layer: T) -> NeuraSequential<T, Self> {
         NeuraSequential {
             layer: layer,
-            child_network: self,
+            child_network: Box::new(self),
         }
     }
 }
@@ -59,10 +59,10 @@ impl<Layer: NeuraLayer> NeuraSequentialTail for NeuraSequential<Layer, ()> {
     fn push_tail<T: NeuraLayer>(self, layer: T) -> Self::TailPushed<T> {
         NeuraSequential {
             layer: self.layer,
-            child_network: NeuraSequential {
+            child_network: Box::new(NeuraSequential {
                 layer,
-                child_network: (),
-            },
+                child_network: Box::new(()),
+            }),
         }
     }
 }
@@ -78,14 +78,14 @@ impl<Layer: NeuraLayer, ChildNetwork: NeuraSequentialTail> NeuraSequentialTail
     fn trim_tail(self) -> Self::TailTrimmed {
         NeuraSequential {
             layer: self.layer,
-            child_network: self.child_network.trim_tail(),
+            child_network: Box::new(self.child_network.trim_tail()),
         }
     }
 
     fn push_tail<T: NeuraLayer>(self, layer: T) -> Self::TailPushed<T> {
         NeuraSequential {
             layer: self.layer,
-            child_network: self.child_network.push_tail(layer),
+            child_network: Box::new(self.child_network.push_tail(layer)),
         }
     }
 }
@@ -145,7 +145,7 @@ impl<Layer: NeuraTrainableLayer> NeuraTrainableNetwork for NeuraSequential<Layer
 impl<Layer: NeuraTrainableLayer, ChildNetwork: NeuraTrainableNetwork<Input = Layer::Output>>
     NeuraTrainableNetwork for NeuraSequential<Layer, ChildNetwork>
 {
-    type Delta = (Layer::Delta, ChildNetwork::Delta);
+    type Delta = (Layer::Delta, Box<ChildNetwork::Delta>);
 
     fn apply_gradient(&mut self, gradient: &Self::Delta) {
         self.layer.apply_gradient(&gradient.0);
@@ -165,11 +165,17 @@ impl<Layer: NeuraTrainableLayer, ChildNetwork: NeuraTrainableNetwork<Input = Lay
         let (backprop_gradient, layer_gradient) =
             self.layer.backpropagate(input, backprop_gradient);
 
-        (backprop_gradient, (layer_gradient, weights_gradient))
+        (
+            backprop_gradient,
+            (layer_gradient, Box::new(weights_gradient)),
+        )
     }
 
     fn regularize(&self) -> Self::Delta {
-        (self.layer.regularize(), self.child_network.regularize())
+        (
+            self.layer.regularize(),
+            Box::new(self.child_network.regularize()),
+        )
     }
 
     fn prepare_epoch(&mut self) {
@@ -187,7 +193,7 @@ impl<Layer: NeuraLayer> From<Layer> for NeuraSequential<Layer, ()> {
     fn from(layer: Layer) -> Self {
         Self {
             layer,
-            child_network: (),
+            child_network: Box::new(()),
         }
     }
 }

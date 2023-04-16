@@ -1,8 +1,7 @@
 use super::{NeuraLayer, NeuraTrainableLayer};
 use crate::{
-    algebra::NeuraVectorSpace,
+    algebra::{NeuraMatrix, NeuraVector, NeuraVectorSpace},
     derivable::NeuraDerivable,
-    utils::{multiply_matrix_transpose_vector, multiply_matrix_vector, reverse_dot_product},
 };
 
 use rand::Rng;
@@ -15,8 +14,8 @@ pub struct NeuraDenseLayer<
     const INPUT_LEN: usize,
     const OUTPUT_LEN: usize,
 > {
-    weights: [[f64; INPUT_LEN]; OUTPUT_LEN],
-    bias: [f64; OUTPUT_LEN],
+    weights: NeuraMatrix<INPUT_LEN, OUTPUT_LEN, f64>,
+    bias: NeuraVector<OUTPUT_LEN, f64>,
     activation: Act,
     regularization: Reg,
 }
@@ -29,8 +28,8 @@ impl<
     > NeuraDenseLayer<Act, Reg, INPUT_LEN, OUTPUT_LEN>
 {
     pub fn new(
-        weights: [[f64; INPUT_LEN]; OUTPUT_LEN],
-        bias: [f64; OUTPUT_LEN],
+        weights: NeuraMatrix<INPUT_LEN, OUTPUT_LEN, f64>,
+        bias: NeuraVector<OUTPUT_LEN, f64>,
         activation: Act,
         regularization: Reg,
     ) -> Self {
@@ -43,7 +42,7 @@ impl<
     }
 
     pub fn from_rng(rng: &mut impl Rng, activation: Act, regularization: Reg) -> Self {
-        let mut weights = [[0.0; INPUT_LEN]; OUTPUT_LEN];
+        let mut weights: NeuraMatrix<INPUT_LEN, OUTPUT_LEN, f64> = NeuraMatrix::from_value(0.0f64);
 
         // Use Xavier (or He) initialisation, using the harmonic mean
         // Ref: https://www.deeplearning.ai/ai-notes/initialization/index.html
@@ -63,7 +62,7 @@ impl<
         Self {
             weights,
             // Biases are initialized based on the activation's hint
-            bias: [activation.bias_hint(); OUTPUT_LEN],
+            bias: NeuraVector::from_value(activation.bias_hint()),
             activation,
             regularization,
         }
@@ -77,12 +76,12 @@ impl<
         const OUTPUT_LEN: usize,
     > NeuraLayer for NeuraDenseLayer<Act, Reg, INPUT_LEN, OUTPUT_LEN>
 {
-    type Input = [f64; INPUT_LEN];
+    type Input = NeuraVector<INPUT_LEN, f64>;
 
-    type Output = [f64; OUTPUT_LEN];
+    type Output = NeuraVector<OUTPUT_LEN, f64>;
 
     fn eval(&self, input: &Self::Input) -> Self::Output {
-        let mut result = multiply_matrix_vector(&self.weights, input);
+        let mut result = self.weights.multiply_vector(input);
 
         for i in 0..OUTPUT_LEN {
             result[i] = self.activation.eval(result[i] + self.bias[i]);
@@ -99,29 +98,32 @@ impl<
         const OUTPUT_LEN: usize,
     > NeuraTrainableLayer for NeuraDenseLayer<Act, Reg, INPUT_LEN, OUTPUT_LEN>
 {
-    type Delta = ([[f64; INPUT_LEN]; OUTPUT_LEN], [f64; OUTPUT_LEN]);
+    type Delta = (
+        NeuraMatrix<INPUT_LEN, OUTPUT_LEN, f64>,
+        NeuraVector<OUTPUT_LEN, f64>,
+    );
 
     fn backpropagate(
         &self,
         input: &Self::Input,
         epsilon: Self::Output,
     ) -> (Self::Input, Self::Delta) {
-        let evaluated = multiply_matrix_vector(&self.weights, input);
+        let evaluated = self.weights.multiply_vector(input);
         // Compute delta (the input gradient of the neuron) from epsilon (the output gradient of the neuron),
         // with `self.activation'(input) ° epsilon = delta`
-        let mut delta = epsilon.clone();
+        let mut delta: NeuraVector<OUTPUT_LEN, f64> = epsilon.clone();
         for i in 0..OUTPUT_LEN {
             delta[i] *= self.activation.derivate(evaluated[i]);
         }
 
         // Compute the weight gradient
-        let weights_gradient = reverse_dot_product(&delta, input);
+        let weights_gradient = delta.reverse_dot(input);
+
+        let new_epsilon = self.weights.transpose_multiply_vector(&delta);
 
         // According to https://datascience.stackexchange.com/questions/20139/gradients-for-bias-terms-in-backpropagation
         // The gradient of the bias is equal to the delta term of the backpropagation algorithm
         let bias_gradient = delta;
-
-        let new_epsilon = multiply_matrix_transpose_vector(&self.weights, &delta);
 
         (new_epsilon, (weights_gradient, bias_gradient))
     }
@@ -132,7 +134,7 @@ impl<
     }
 
     fn regularize(&self) -> Self::Delta {
-        let mut res = ([[0.0; INPUT_LEN]; OUTPUT_LEN], [0.0; OUTPUT_LEN]);
+        let mut res = Self::Delta::default();
 
         for i in 0..OUTPUT_LEN {
             for j in 0..INPUT_LEN {
@@ -149,7 +151,10 @@ impl<
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::derivable::{activation::Relu, regularize::NeuraL0};
+    use crate::{
+        derivable::{activation::Relu, regularize::NeuraL0},
+        utils::uniform_vector,
+    };
 
     #[test]
     fn test_from_rng() {
@@ -160,6 +165,16 @@ mod test {
         for x in 0..64 {
             input[x] = rng.gen();
         }
-        assert!(layer.eval(&input).len() == 32);
+        assert!(layer.eval(&input.into()).len() == 32);
+    }
+
+    #[test]
+    fn test_stack_overflow_big_layer() {
+        let layer = NeuraDenseLayer::from_rng(&mut rand::thread_rng(), Relu, NeuraL0)
+            as NeuraDenseLayer<Relu, NeuraL0, 1000, 1000>;
+
+        layer.backpropagate(&uniform_vector(), uniform_vector());
+
+        <NeuraDenseLayer<Relu, NeuraL0, 1000, 1000> as NeuraTrainableLayer>::Delta::zero();
     }
 }

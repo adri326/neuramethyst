@@ -1,4 +1,4 @@
-use crate::utils::multiply_vectors_pointwise;
+use crate::algebra::NeuraVector;
 
 use super::{NeuraLayer, NeuraTrainableLayer};
 
@@ -13,16 +13,16 @@ impl<const LENGTH: usize> NeuraSoftmaxLayer<LENGTH> {
 }
 
 impl<const LENGTH: usize> NeuraLayer for NeuraSoftmaxLayer<LENGTH> {
-    type Input = [f64; LENGTH];
-    type Output = [f64; LENGTH];
+    type Input = NeuraVector<LENGTH, f64>;
+    type Output = NeuraVector<LENGTH, f64>;
 
     fn eval(&self, input: &Self::Input) -> Self::Output {
-        let mut res = input.clone();
+        let mut res: Self::Input = input.clone();
 
         let mut max = 0.0;
-        for item in &res {
-            if *item > max {
-                max = *item;
+        for &item in &res {
+            if item > max {
+                max = item;
             }
         }
 
@@ -55,10 +55,10 @@ impl<const LENGTH: usize> NeuraTrainableLayer for NeuraSoftmaxLayer<LENGTH> {
         let evaluated = self.eval(input);
 
         // Compute $a_{l-1,i} \epsilon_{l,i}$
-        epsilon = multiply_vectors_pointwise(&epsilon, &evaluated);
+        epsilon = epsilon.hadamard_product(&evaluated);
 
         // Compute $\sum_{k}{a_{l-1,k} \epsilon_{l,k}}$
-        let sum_diagonal_terms: f64 = epsilon.iter().copied().sum();
+        let sum_diagonal_terms: f64 = epsilon.iter().sum();
 
         for i in 0..LENGTH {
             // Multiply $\sum_{k}{a_{l-1,k} \epsilon_{l,k}}$ by $a_{l-1,i}$ and add it to $a_{l-1,i} \epsilon_{l,i}$
@@ -79,10 +79,8 @@ impl<const LENGTH: usize> NeuraTrainableLayer for NeuraSoftmaxLayer<LENGTH> {
 
 #[cfg(test)]
 mod test {
-    use crate::algebra::NeuraVectorSpace;
-    use crate::utils::{
-        matrix_from_diagonal, multiply_matrix_vector, reverse_dot_product, uniform_vector,
-    };
+    use crate::algebra::{NeuraMatrix, NeuraVectorSpace};
+    use crate::utils::uniform_vector;
 
     use super::*;
 
@@ -91,7 +89,7 @@ mod test {
         const EPSILON: f64 = 0.000002;
         let layer = NeuraSoftmaxLayer::new() as NeuraSoftmaxLayer<3>;
 
-        let result = layer.eval(&[1.0, 2.0, 8.0]);
+        let result = layer.eval(&[1.0, 2.0, 8.0].into());
 
         assert!((result[0] - 0.0009088).abs() < EPSILON);
         assert!((result[1] - 0.0024704).abs() < EPSILON);
@@ -113,7 +111,7 @@ mod test {
                     for epsilon2 in [2.9, 3.1, 3.7] {
                         let epsilon = [epsilon1, epsilon2];
 
-                        let (epsilon, _) = layer.backpropagate(&input, epsilon);
+                        let (epsilon, _) = layer.backpropagate(&input.into(), epsilon.into());
                         let expected = [
                             output[0] * (1.0 - output[0]) * epsilon1
                                 - output[1] * output[0] * epsilon2,
@@ -136,15 +134,15 @@ mod test {
         let layer = NeuraSoftmaxLayer::new() as NeuraSoftmaxLayer<4>;
 
         for _ in 0..100 {
-            let input: [f64; 4] = uniform_vector();
+            let input = uniform_vector::<4>();
             let evaluated = layer.eval(&input);
-            let loss: [f64; 4] = uniform_vector();
+            let loss = uniform_vector::<4>();
 
-            let mut derivative = reverse_dot_product(&evaluated, &evaluated);
+            let mut derivative = evaluated.reverse_dot(&evaluated);
             derivative.mul_assign(-1.0);
-            derivative.add_assign(&matrix_from_diagonal(&evaluated));
+            derivative.add_assign(&NeuraMatrix::from_diagonal(&evaluated));
 
-            let expected = multiply_matrix_vector(&derivative, &loss);
+            let expected = derivative.multiply_vector(&loss);
             let (actual, _) = layer.backpropagate(&input, loss);
 
             for i in 0..4 {
