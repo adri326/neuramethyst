@@ -31,6 +31,24 @@ impl<const WIDTH: usize, const HEIGHT: usize, F> NeuraMatrix<WIDTH, HEIGHT, F> {
 
         Some(&self.data[y][x])
     }
+
+    #[inline]
+    pub fn set_row(&mut self, y: usize, row: impl Borrow<[F; WIDTH]>)
+    where
+        F: Clone,
+    {
+        if y >= HEIGHT {
+            panic!(
+                "Cannot set row {} of NeuraMatrix<{}, {}, _>: row index out of bound",
+                y, WIDTH, HEIGHT
+            );
+        }
+
+        let row = row.borrow();
+        for j in 0..WIDTH {
+            self.data[y][j] = row[j].clone();
+        }
+    }
 }
 
 impl<const WIDTH: usize, const HEIGHT: usize, F: Float> NeuraMatrix<WIDTH, HEIGHT, F> {

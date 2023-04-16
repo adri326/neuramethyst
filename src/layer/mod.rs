@@ -1,6 +1,9 @@
 mod dense;
 pub use dense::NeuraDenseLayer;
 
+mod convolution;
+pub use convolution::NeuraConv1DPad;
+
 mod dropout;
 pub use dropout::NeuraDropoutLayer;
 
@@ -10,14 +13,11 @@ pub use softmax::NeuraSoftmaxLayer;
 mod one_hot;
 pub use one_hot::NeuraOneHotLayer;
 
-// mod reshape;
-// pub use reshape::{
-//     NeuraFlattenLayer,
-//     NeuraReshapeLayer
-// };
-
 mod lock;
 pub use lock::NeuraLockLayer;
+
+mod reshape;
+pub use reshape::{NeuraFlattenLayer, NeuraReshapeLayer};
 
 use crate::algebra::NeuraVectorSpace;
 
@@ -105,19 +105,27 @@ macro_rules! neura_layer {
         $crate::layer::NeuraLockLayer($layer)
     };
 
-    // ( "flatten" ) => {
-    //     $crate::layer::NeuraFlattenLayer::new() as $crate::layer::NeuraFlattenLayer<_, _, f64>
-    // };
+    ( "conv1d_pad", $length:expr, $feats:expr, $window:expr; $layer:expr ) => {
+        $crate::layer::NeuraConv1DPad::new($layer, Default::default()) as $crate::layer::NeuraConv1DPad<$length, $feats, $window, _>
+    };
 
-    // ( "flatten", $width:expr, $height:expr ) => {
-    //     $crate::layer::NeuraFlattenLayer::new() as $crate::layer::NeuraFlattenLayer<$width, $height, f64>
-    // };
+    ( "conv1d_pad", $window:expr; $layer:expr ) => {
+        $crate::layer::NeuraConv1DPad::new($layer, Default::default()) as $crate::layer::NeuraConv1DPad<_, _, $window, _>
+    };
 
-    // ( "reshape", $height:expr ) => {
-    //     $crate::layer::NeuraReshapeLayer::new() as $crate::layer::NeuraReshapeLayer<_, $height, f64>
-    // };
+    ( "unstable_flatten" ) => {
+        $crate::layer::NeuraFlattenLayer::new() as $crate::layer::NeuraFlattenLayer<_, _, f64>
+    };
 
-    // ( "reshape", $width:expr, $height:expr ) => {
-    //     $crate::layer::NeuraReshapeLayer::new() as $crate::layer::NeuraReshapeLayer<$width, $height, f64>
-    // };
+    ( "unstable_flatten", $width:expr, $height:expr ) => {
+        $crate::layer::NeuraFlattenLayer::new() as $crate::layer::NeuraFlattenLayer<$width, $height, f64>
+    };
+
+    ( "unstable_reshape", $height:expr ) => {
+        $crate::layer::NeuraReshapeLayer::new() as $crate::layer::NeuraReshapeLayer<_, $height, f64>
+    };
+
+    ( "unstable_reshape", $width:expr, $height:expr ) => {
+        $crate::layer::NeuraReshapeLayer::new() as $crate::layer::NeuraReshapeLayer<$width, $height, f64>
+    };
 }

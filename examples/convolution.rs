@@ -1,5 +1,5 @@
 #![feature(generic_arg_infer)]
-// #![feature(generic_const_exprs)]
+#![feature(generic_const_exprs)]
 
 use neuramethyst::algebra::NeuraVector;
 use rust_mnist::Mnist;
@@ -9,7 +9,7 @@ use neuramethyst::derivable::loss::CrossEntropy;
 use neuramethyst::{cycle_shuffling, one_hot, prelude::*};
 
 fn main() {
-    const TRAIN_SIZE: usize = 100;
+    const TRAIN_SIZE: usize = 1000;
 
     let Mnist {
         train_data: train_images,
@@ -53,19 +53,18 @@ fn main() {
     let test_inputs: Vec<_> = test_images.zip(test_labels.into_iter()).collect();
 
     let mut network = neura_sequential![
-        neura_layer!("dense", { 28 * 28 }, 200; Relu),
-        neura_layer!("dropout", 0.5),
-        neura_layer!("dense", 100; Relu),
-        neura_layer!("dropout", 0.5),
+        neura_layer!("unstable_reshape", 28, 28),
+        neura_layer!("conv1d_pad", 3; neura_layer!("dense", {28 * 3}, 10; Relu)),
+        neura_layer!("unstable_flatten"),
+        // neura_layer!("dense", 100; Relu),
+        // neura_layer!("dropout", 0.5),
         neura_layer!("dense", 30; Relu),
         neura_layer!("dropout", 0.5),
         neura_layer!("dense", 10; Linear),
         neura_layer!("softmax")
     ];
 
-    let mut trainer = NeuraBatchedTrainer::new(0.03, TRAIN_SIZE * 10);
-    trainer.log_iterations = (TRAIN_SIZE / 128).max(1);
-    trainer.batch_size = 128;
+    let mut trainer = NeuraBatchedTrainer::with_epochs(0.03, 100, 128, TRAIN_SIZE);
     trainer.learning_momentum = 0.001;
 
     trainer.train(

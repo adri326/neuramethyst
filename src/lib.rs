@@ -1,6 +1,5 @@
 #![feature(generic_arg_infer)]
-#![feature(generic_associated_types)]
-// #![feature(generic_const_exprs)]
+#![feature(generic_const_exprs)]
 
 pub mod algebra;
 pub mod derivable;

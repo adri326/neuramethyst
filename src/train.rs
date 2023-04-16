@@ -121,6 +121,21 @@ impl NeuraBatchedTrainer {
         }
     }
 
+    pub fn with_epochs(
+        learning_rate: f64,
+        epochs: usize,
+        batch_size: usize,
+        training_size: usize,
+    ) -> Self {
+        Self {
+            learning_rate,
+            iterations: (training_size * epochs / batch_size).max(1),
+            log_iterations: (training_size / batch_size).max(1),
+            batch_size,
+            ..Default::default()
+        }
+    }
+
     pub fn train<
         Output,
         Target: Clone,
