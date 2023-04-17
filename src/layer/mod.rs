@@ -2,7 +2,7 @@ mod dense;
 pub use dense::NeuraDenseLayer;
 
 mod convolution;
-pub use convolution::NeuraConv1DPad;
+pub use convolution::{NeuraConv1DPadLayer, NeuraConv2DPadLayer};
 
 mod dropout;
 pub use dropout::NeuraDropoutLayer;
@@ -15,6 +15,9 @@ pub use one_hot::NeuraOneHotLayer;
 
 mod lock;
 pub use lock::NeuraLockLayer;
+
+mod pool;
+pub use pool::{NeuraGlobalPoolLayer, NeuraPool1DLayer};
 
 mod reshape;
 pub use reshape::{NeuraFlattenLayer, NeuraReshapeLayer};
@@ -105,12 +108,40 @@ macro_rules! neura_layer {
         $crate::layer::NeuraLockLayer($layer)
     };
 
-    ( "conv1d_pad", $length:expr, $feats:expr, $window:expr; $layer:expr ) => {
-        $crate::layer::NeuraConv1DPad::new($layer, Default::default()) as $crate::layer::NeuraConv1DPad<$length, $feats, $window, _>
+    ( "conv1d_pad", $length:expr, $feats:expr; $window:expr; $layer:expr ) => {
+        $crate::layer::NeuraConv1DPadLayer::new($layer, Default::default()) as $crate::layer::NeuraConv1DPadLayer<$length, $feats, $window, _>
     };
 
-    ( "conv1d_pad", $window:expr; $layer:expr ) => {
-        $crate::layer::NeuraConv1DPad::new($layer, Default::default()) as $crate::layer::NeuraConv1DPad<_, _, $window, _>
+    ( "conv1d_pad"; $window:expr; $layer:expr ) => {
+        $crate::layer::NeuraConv1DPadLayer::new($layer, Default::default()) as $crate::layer::NeuraConv1DPadLayer<_, _, $window, _>
+    };
+
+    ( "conv2d_pad", $feats:expr, $length:expr; $width:expr, $window:expr; $layer:expr ) => {
+        $crate::layer::NeuraConv2DPadLayer::new($layer, Default::default(), $width) as $crate::layer::NeuraConv2DPadLayer<$length, $feats, $window, _>
+    };
+
+    ( "conv2d_pad"; $width:expr, $window:expr; $layer:expr ) => {
+        $crate::layer::NeuraConv2DPadLayer::new($layer, Default::default(), $width) as $crate::layer::NeuraConv2DPadLayer<_, _, $window, _>
+    };
+
+    ( "pool_global"; $reduce:expr ) => {
+        $crate::layer::NeuraGlobalPoolLayer::new($reduce) as $crate::layer::NeuraGlobalPoolLayer<_, _, _>
+    };
+
+    ( "pool_global", $feats:expr, $length:expr; $reduce:expr ) => {
+        $crate::layer::NeuraGlobalPoolLayer::new($reduce) as $crate::layer::NeuraGlobalPoolLayer<$length, $feats, _>
+    };
+
+    ( "pool1d", $blocklength:expr; $reduce:expr ) => {
+        $crate::layer::NeuraPool1DLayer::new($reduce) as $crate::layer::NeuraPool1DLayer<_, $blocklength, _, _>
+    };
+
+    ( "pool1d", $blocks:expr, $blocklength:expr; $reduce:expr ) => {
+        $crate::layer::NeuraPool1DLayer::new($reduce) as $crate::layer::NeuraPool1DLayer<$blocks, $blocklength, _, _>
+    };
+
+    ( "pool1d", $feats:expr, $blocks:expr, $blocklength:expr; $reduce:expr ) => {
+        $crate::layer::NeuraPool1DLayer::new($reduce) as $crate::layer::NeuraPool1DLayer<$blocks, $blocklength, $feats, _>
     };
 
     ( "unstable_flatten" ) => {

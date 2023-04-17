@@ -49,6 +49,52 @@ impl<const WIDTH: usize, const HEIGHT: usize, F> NeuraMatrix<WIDTH, HEIGHT, F> {
             self.data[y][j] = row[j].clone();
         }
     }
+
+    #[inline]
+    pub fn set_column(&mut self, x: usize, column: impl Borrow<[F; HEIGHT]>)
+    where
+        F: Clone,
+    {
+        if x >= WIDTH {
+            panic!(
+                "Cannot set column {} of NeuraMatrix<{}, {}, _>: column index out of bound",
+                x, WIDTH, HEIGHT
+            );
+        }
+
+        let column = column.borrow();
+        for i in 0..HEIGHT {
+            self.data[i][x] = column[i].clone();
+        }
+    }
+
+    #[inline]
+    pub fn get_row(&self, y: usize) -> NeuraVector<WIDTH, F>
+    where
+        F: Default + Clone,
+    {
+        let mut row = NeuraVector::default();
+
+        for j in 0..WIDTH {
+            row[j] = self.data[y][j].clone();
+        }
+
+        row
+    }
+
+    #[inline]
+    pub fn get_column(&self, x: usize) -> NeuraVector<HEIGHT, F>
+    where
+        F: Default + Clone,
+    {
+        let mut row = NeuraVector::default();
+
+        for i in 0..HEIGHT {
+            row[i] = self.data[i][x].clone();
+        }
+
+        row
+    }
 }
 
 impl<const WIDTH: usize, const HEIGHT: usize, F: Float> NeuraMatrix<WIDTH, HEIGHT, F> {
@@ -102,22 +148,21 @@ impl<const LENGTH: usize, F: Default + Clone> NeuraMatrix<LENGTH, LENGTH, F> {
     }
 }
 
-impl<const WIDTH: usize, const HEIGHT: usize, F: Float + From<f64> + Into<f64>> NeuraVectorSpace
+impl<const WIDTH: usize, const HEIGHT: usize, F: NeuraVectorSpace + Clone> NeuraVectorSpace
     for NeuraMatrix<WIDTH, HEIGHT, F>
 {
     fn add_assign(&mut self, other: &Self) {
         for i in 0..HEIGHT {
             for j in 0..WIDTH {
-                self.data[i][j] = self.data[i][j] + other.data[i][j];
+                self.data[i][j].add_assign(&other.data[i][j]);
             }
         }
     }
 
     fn mul_assign(&mut self, by: f64) {
-        let by: F = by.into();
         for i in 0..HEIGHT {
             for j in 0..WIDTH {
-                self.data[i][j] = self.data[i][j] * by;
+                self.data[i][j].mul_assign(by);
             }
         }
     }
@@ -128,16 +173,15 @@ impl<const WIDTH: usize, const HEIGHT: usize, F: Float + From<f64> + Into<f64>> 
     }
 
     fn norm_squared(&self) -> f64 {
-        let mut sum = F::zero();
+        let mut sum = 0.0;
 
         for i in 0..HEIGHT {
             for j in 0..WIDTH {
-                let x = self.data[i][j];
-                sum = sum + x * x;
+                sum += self.data[i][j].norm_squared();
             }
         }
 
-        sum.into()
+        sum
     }
 }
 

@@ -68,9 +68,9 @@ impl<const LENGTH: usize, F: Float> NeuraVector<LENGTH, F> {
         result
     }
 
-    pub fn hadamard_product(&self, other: impl AsRef<[F; LENGTH]>) -> NeuraVector<LENGTH, F> {
+    pub fn hadamard_product(&self, other: impl Borrow<[F; LENGTH]>) -> NeuraVector<LENGTH, F> {
         let mut result: NeuraVector<LENGTH, F> = NeuraVector::from_value(F::zero());
-        let other = other.as_ref();
+        let other = other.borrow();
 
         for i in 0..LENGTH {
             result[i] = self.data[i] * other[i];

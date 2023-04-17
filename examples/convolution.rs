@@ -2,6 +2,7 @@
 #![feature(generic_const_exprs)]
 
 use neuramethyst::algebra::NeuraVector;
+use neuramethyst::derivable::reduce::Average;
 use rust_mnist::Mnist;
 
 use neuramethyst::derivable::activation::{Linear, Relu};
@@ -53,13 +54,18 @@ fn main() {
     let test_inputs: Vec<_> = test_images.zip(test_labels.into_iter()).collect();
 
     let mut network = neura_sequential![
-        neura_layer!("unstable_reshape", 28, 28),
-        neura_layer!("conv1d_pad", 3; neura_layer!("dense", {28 * 3}, 10; Relu)),
-        neura_layer!("unstable_flatten"),
+        neura_layer!("unstable_reshape", 1, { 28 * 28 }),
+        neura_layer!("conv2d_pad", 1, {28 * 28}; 28, 3; neura_layer!("dense", {1 * 3 * 3}, 10; Relu)),
+        // neura_layer!("conv2d_pad", 28, 1; neura_layer!("dense", {30 * 1 * 1}, 10; Relu)),
+
+        // neura_layer!("pool_global", 10, {28 * 28}; Average),
+        // neura_layer!("pool1d", 10, 28, 28; Average),
+        // neura_layer!("unstable_flatten", 10, 28),
+        neura_layer!("unstable_flatten", 10, { 28 * 28 }),
         // neura_layer!("dense", 100; Relu),
         // neura_layer!("dropout", 0.5),
-        neura_layer!("dense", 30; Relu),
-        neura_layer!("dropout", 0.5),
+        // neura_layer!("dense", 30; Relu),
+        // neura_layer!("dropout", 0.5),
         neura_layer!("dense", 10; Linear),
         neura_layer!("softmax")
     ];

@@ -1,5 +1,8 @@
+use crate::algebra::NeuraVector;
+
 pub mod activation;
 pub mod loss;
+pub mod reduce;
 pub mod regularize;
 
 pub trait NeuraDerivable<F> {
@@ -30,4 +33,11 @@ pub trait NeuraLoss {
     /// Should return the gradient of the loss function according to `actual`
     /// ($\nabla_{\texttt{actual}} \texttt{self.eval}(\texttt{target}, \texttt{actual})$).
     fn nabla(&self, target: &Self::Target, actual: &Self::Input) -> Self::Input;
+}
+
+pub trait NeuraReducer<F> {
+    fn eval<const LENGTH: usize>(&self, inputs: NeuraVector<LENGTH, F>) -> F;
+
+    /// Should return the gradient of the reducer at `inputs`, ie. `[∂eval(inputs)/∂inputsᵢ]ᵢ`
+    fn nabla<const LENGTH: usize>(&self, inputs: NeuraVector<LENGTH, F>) -> NeuraVector<LENGTH, F>;
 }
