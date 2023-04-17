@@ -2,7 +2,7 @@ mod dense;
 pub use dense::NeuraDenseLayer;
 
 mod convolution;
-pub use convolution::{NeuraConv1DPadLayer, NeuraConv2DPadLayer};
+pub use convolution::{NeuraConv1DPadLayer, NeuraConv2DBlockLayer, NeuraConv2DPadLayer};
 
 mod dropout;
 pub use dropout::NeuraDropoutLayer;
@@ -122,6 +122,14 @@ macro_rules! neura_layer {
 
     ( "conv2d_pad"; $width:expr, $window:expr; $layer:expr ) => {
         $crate::layer::NeuraConv2DPadLayer::new($layer, Default::default(), $width) as $crate::layer::NeuraConv2DPadLayer<_, _, $window, _>
+    };
+
+    ( "conv2d_block", $feats:expr, $width:expr, $height:expr; $block_size:expr; $layer:expr ) => {
+        $crate::layer::NeuraConv2DBlockLayer::new($layer) as $crate::layer::NeuraConv2DBlockLayer<$width, $height, $feats, $block_size, _>
+    };
+
+    ( "conv2d_block", $width:expr, $height:expr; $block_size:expr; $layer:expr ) => {
+        $crate::layer::NeuraConv2DBlockLayer::new($layer) as $crate::layer::NeuraConv2DBlockLayer<$width, $height, _, $block_size, _>
     };
 
     ( "pool_global"; $reduce:expr ) => {

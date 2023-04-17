@@ -167,7 +167,7 @@ pub struct NeuraConv2DPadLayer<
     /// The width of the image, in grid units.
     ///
     /// **Class invariant:** `LAYER % width == 0`, `width > 0`
-    pub width: NonZeroUsize,
+    width: NonZeroUsize,
 }
 
 impl<
@@ -190,6 +190,10 @@ impl<
             pad_with,
             width: width.try_into().expect("width cannot be zero!"),
         }
+    }
+
+    pub fn width(&self) -> NonZeroUsize {
+        self.width
     }
 
     /// Iterates within the `(WINDOW, WINDOW)` window centered around `x, y`;
@@ -336,5 +340,150 @@ where
 
     fn cleanup(&mut self) {
         self.inner_layer.cleanup();
+    }
+}
+
+#[non_exhaustive]
+#[derive(Clone, Debug)]
+pub struct NeuraConv2DBlockLayer<
+    const WIDTH: usize,
+    const HEIGHT: usize,
+    const IN_FEATS: usize,
+    const BLOCK_SIZE: usize,
+    Layer: NeuraLayer<Input = NeuraVector<{ IN_FEATS * BLOCK_SIZE * BLOCK_SIZE }, f64>>,
+> {
+    pub inner_layer: Layer,
+}
+
+impl<
+        const WIDTH: usize,
+        const HEIGHT: usize,
+        const IN_FEATS: usize,
+        const BLOCK_SIZE: usize,
+        Layer: NeuraLayer<Input = NeuraVector<{ IN_FEATS * BLOCK_SIZE * BLOCK_SIZE }, f64>>,
+    > NeuraConv2DBlockLayer<WIDTH, HEIGHT, IN_FEATS, BLOCK_SIZE, Layer>
+{
+    pub fn new(layer: Layer) -> Self {
+        Self { inner_layer: layer }
+    }
+
+    fn iterate_blocks<'a>(
+        &'a self,
+        input: &'a NeuraMatrix<IN_FEATS, { WIDTH * HEIGHT * BLOCK_SIZE * BLOCK_SIZE }, f64>,
+    ) -> impl Iterator<
+        Item = (
+            usize,
+            usize,
+            usize,
+            NeuraVector<{ IN_FEATS * BLOCK_SIZE * BLOCK_SIZE }, f64>,
+        ),
+    > + 'a {
+        (0..HEIGHT).flat_map(move |y| {
+            (0..WIDTH).map(move |x| {
+                let output_index = y * WIDTH + x;
+                let mut virtual_input = NeuraVector::default();
+
+                for dy in 0..BLOCK_SIZE {
+                    let y = y * BLOCK_SIZE + dy;
+                    for dx in 0..BLOCK_SIZE {
+                        let x = x * BLOCK_SIZE + dx;
+                        let virtual_index = dy * BLOCK_SIZE + dx;
+
+                        for k in 0..IN_FEATS {
+                            virtual_input[virtual_index * IN_FEATS + k] = input[y * WIDTH + x][k];
+                        }
+                    }
+                }
+
+                (x, y, output_index, virtual_input)
+            })
+        })
+    }
+}
+
+impl<
+        const WIDTH: usize,
+        const HEIGHT: usize,
+        const IN_FEATS: usize,
+        const OUT_FEATS: usize,
+        const BLOCK_SIZE: usize,
+        Layer: NeuraLayer<
+            Input = NeuraVector<{ IN_FEATS * BLOCK_SIZE * BLOCK_SIZE }, f64>,
+            Output = NeuraVector<OUT_FEATS, f64>,
+        >,
+    > NeuraLayer for NeuraConv2DBlockLayer<WIDTH, HEIGHT, IN_FEATS, BLOCK_SIZE, Layer>
+where
+    [f64; WIDTH * HEIGHT * BLOCK_SIZE * BLOCK_SIZE]: Sized,
+{
+    type Input = NeuraMatrix<IN_FEATS, { WIDTH * HEIGHT * BLOCK_SIZE * BLOCK_SIZE }, f64>;
+
+    type Output = NeuraMatrix<OUT_FEATS, { WIDTH * HEIGHT }, f64>;
+
+    fn eval(&self, input: &Self::Input) -> Self::Output {
+        let mut res = Self::Output::default();
+
+        for (_, _, output_index, virtual_input) in self.iterate_blocks(input) {
+            res.set_row(output_index, self.inner_layer.eval(&virtual_input));
+        }
+
+        res
+    }
+}
+
+impl<
+        const WIDTH: usize,
+        const HEIGHT: usize,
+        const IN_FEATS: usize,
+        const OUT_FEATS: usize,
+        const BLOCK_SIZE: usize,
+        Layer: NeuraLayer<
+            Input = NeuraVector<{ IN_FEATS * BLOCK_SIZE * BLOCK_SIZE }, f64>,
+            Output = NeuraVector<OUT_FEATS, f64>,
+        >,
+    > NeuraTrainableLayer for NeuraConv2DBlockLayer<WIDTH, HEIGHT, IN_FEATS, BLOCK_SIZE, Layer>
+where
+    [f64; WIDTH * HEIGHT * BLOCK_SIZE * BLOCK_SIZE]: Sized,
+    Layer: NeuraTrainableLayer,
+{
+    type Delta = Layer::Delta;
+
+    fn backpropagate(
+        &self,
+        input: &Self::Input,
+        epsilon: Self::Output,
+    ) -> (Self::Input, Self::Delta) {
+        let mut gradient_sum = Layer::Delta::zero();
+        let mut next_epsilon = Self::Input::default();
+
+        for (x, y, output_index, virtual_input) in self.iterate_blocks(input) {
+            let (layer_next_epsilon, gradient) = self
+                .inner_layer
+                .backpropagate(&virtual_input, epsilon.get_row(output_index));
+
+            gradient_sum.add_assign(&gradient);
+
+            for dy in 0..BLOCK_SIZE {
+                let y = y * BLOCK_SIZE + dy;
+                for dx in 0..BLOCK_SIZE {
+                    let x = x * BLOCK_SIZE + dx;
+                    let input_index = y * WIDTH + x;
+
+                    for k in 0..IN_FEATS {
+                        next_epsilon[input_index][k] =
+                            layer_next_epsilon[(dy * BLOCK_SIZE + dx) * IN_FEATS + k];
+                    }
+                }
+            }
+        }
+
+        (next_epsilon, gradient_sum)
+    }
+
+    fn regularize(&self) -> Self::Delta {
+        self.inner_layer.regularize()
+    }
+
+    fn apply_gradient(&mut self, gradient: &Self::Delta) {
+        self.inner_layer.apply_gradient(gradient);
     }
 }

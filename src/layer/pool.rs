@@ -150,7 +150,7 @@ where
                     block_input[k] = input[block * BLOCK_LENGTH + k];
                 }
 
-                let mut gradient = self.reducer.nabla(block_input);
+                let gradient = self.reducer.nabla(block_input);
 
                 for k in 0..BLOCK_LENGTH {
                     column_gradient[block * BLOCK_LENGTH + k] = gradient[k] * epsilon[block][j];
