@@ -1,11 +1,14 @@
 #![feature(generic_arg_infer)]
 #![feature(generic_const_exprs)]
+#![feature(negative_impls)]
 
 pub mod algebra;
 pub mod derivable;
-pub mod layer;
+// pub mod layer;
 pub mod network;
 pub mod train;
+
+pub mod layer;
 
 mod utils;
 
@@ -17,7 +20,7 @@ pub mod prelude {
     pub use crate::{neura_layer, neura_sequential};
 
     // Structs and traits
-    pub use crate::layer::{NeuraDenseLayer, NeuraDropoutLayer, NeuraLayer};
-    pub use crate::network::sequential::{NeuraSequential, NeuraSequentialTail};
+    pub use crate::layer::*;
+    pub use crate::network::sequential::{NeuraSequential, NeuraSequentialTail, NeuraSequentialBuild};
     pub use crate::train::{NeuraBackprop, NeuraBatchedTrainer};
 }

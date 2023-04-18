@@ -95,10 +95,10 @@ impl<const LENGTH: usize, F: Float + From<f64> + Into<f64>> NeuraVectorSpace
         }
     }
 
-    #[inline(always)]
-    fn zero() -> Self {
-        Self::from_value(F::zero())
-    }
+    // #[inline(always)]
+    // fn zero() -> Self {
+    //     Self::from_value(F::zero())
+    // }
 
     fn norm_squared(&self) -> f64 {
         let mut sum = F::zero();

@@ -1,19 +1,22 @@
+use nalgebra::DVector;
+
 use crate::algebra::NeuraVector;
 
 use super::NeuraLoss;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Euclidean<const N: usize>;
+pub struct Euclidean;
 
-impl<const N: usize> NeuraLoss for Euclidean<N> {
-    type Input = NeuraVector<N, f64>;
-    type Target = NeuraVector<N, f64>;
+impl NeuraLoss for Euclidean {
+    type Input = DVector<f64>;
+    type Target = DVector<f64>;
 
     #[inline]
-    fn eval(&self, target: &NeuraVector<N, f64>, actual: &NeuraVector<N, f64>) -> f64 {
+    fn eval(&self, target: &DVector<f64>, actual: &DVector<f64>) -> f64 {
+        assert_eq!(target.shape(), actual.shape());
         let mut sum_squared = 0.0;
 
-        for i in 0..N {
+        for i in 0..target.len() {
             sum_squared += (target[i] - actual[i]) * (target[i] - actual[i]);
         }
 
@@ -23,13 +26,13 @@ impl<const N: usize> NeuraLoss for Euclidean<N> {
     #[inline]
     fn nabla(
         &self,
-        target: &NeuraVector<N, f64>,
-        actual: &NeuraVector<N, f64>,
-    ) -> NeuraVector<N, f64> {
-        let mut res = NeuraVector::default();
+        target: &DVector<f64>,
+        actual: &DVector<f64>,
+    ) -> DVector<f64> {
+        let mut res = DVector::zeros(target.len());
 
         // ∂E(y)/∂yᵢ = yᵢ - yᵢ'
-        for i in 0..N {
+        for i in 0..target.len() {
             res[i] = actual[i] - target[i];
         }
 

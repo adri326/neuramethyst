@@ -167,10 +167,10 @@ impl<const WIDTH: usize, const HEIGHT: usize, F: NeuraVectorSpace + Clone> Neura
         }
     }
 
-    #[inline(always)]
-    fn zero() -> Self {
-        Self::from_value(F::zero())
-    }
+    // #[inline(always)]
+    // fn zero() -> Self {
+    //     Self::from_value(F::zero())
+    // }
 
     fn norm_squared(&self) -> f64 {
         let mut sum = 0.0;

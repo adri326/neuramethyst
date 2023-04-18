@@ -1,22 +1,24 @@
 #![feature(generic_arg_infer)]
 
-use neuramethyst::algebra::NeuraVector;
+use nalgebra::dvector;
+
 use neuramethyst::derivable::activation::Relu;
 use neuramethyst::derivable::loss::Euclidean;
-use neuramethyst::{cycle_shuffling, prelude::*};
+use neuramethyst::prelude::*;
+use neuramethyst::cycle_shuffling;
 
 fn main() {
     let mut network = neura_sequential![
-        neura_layer!("dense", 2, 4; Relu),
-        neura_layer!("dense", 3; Relu),
-        neura_layer!("dense", 1; Relu)
-    ];
+        neura_layer!("dense", 4, Relu),
+        neura_layer!("dense", 3, Relu),
+        neura_layer!("dense", 1, Relu)
+    ].construct(NeuraShape::Vector(2)).unwrap();
 
-    let inputs: [(NeuraVector<2, f64>, NeuraVector<1, f64>); 4] = [
-        ([0.0, 0.0].into(), [0.0].into()),
-        ([0.0, 1.0].into(), [1.0].into()),
-        ([1.0, 0.0].into(), [1.0].into()),
-        ([1.0, 1.0].into(), [0.0].into()),
+    let inputs = [
+        (dvector![0.0, 0.0], dvector![0.0]),
+        (dvector![0.0, 1.0], dvector![1.0]),
+        (dvector![1.0, 0.0], dvector![1.0]),
+        (dvector![1.0, 1.0], dvector![0.0]),
     ];
 
     for (input, target) in &inputs {

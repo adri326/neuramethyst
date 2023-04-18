@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 boxed-array = "0.1.0"
+nalgebra = { version = "^0.32", features = ["std", "macros", "rand"] }
 ndarray = "^0.15"
 num = "^0.4"
 # num-traits = "0.2.15"

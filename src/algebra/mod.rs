@@ -2,6 +2,8 @@ mod matrix;
 pub use matrix::NeuraMatrix;
 
 mod vector;
+use nalgebra::Matrix;
+use num::Float;
 pub use vector::NeuraVector;
 
 /// An extension of `std::ops::AddAssign` and `std::ops::Default`
@@ -10,7 +12,7 @@ pub trait NeuraVectorSpace {
 
     fn mul_assign(&mut self, by: f64);
 
-    fn zero() -> Self;
+    // fn zero() -> Self;
 
     fn norm_squared(&self) -> f64;
 }
@@ -26,10 +28,10 @@ impl NeuraVectorSpace for () {
         // Noop
     }
 
-    #[inline(always)]
-    fn zero() -> Self {
-        ()
-    }
+    // #[inline(always)]
+    // fn zero() -> Self {
+    //     ()
+    // }
 
     fn norm_squared(&self) -> f64 {
         0.0
@@ -45,9 +47,9 @@ impl<T: NeuraVectorSpace> NeuraVectorSpace for Box<T> {
         self.as_mut().mul_assign(by);
     }
 
-    fn zero() -> Self {
-        Box::new(T::zero())
-    }
+    // fn zero() -> Self {
+    //     Box::new(T::zero())
+    // }
 
     fn norm_squared(&self) -> f64 {
         self.as_ref().norm_squared()
@@ -65,9 +67,9 @@ impl<Left: NeuraVectorSpace, Right: NeuraVectorSpace> NeuraVectorSpace for (Left
         NeuraVectorSpace::mul_assign(&mut self.1, by);
     }
 
-    fn zero() -> Self {
-        (Left::zero(), Right::zero())
-    }
+    // fn zero() -> Self {
+    //     (Left::zero(), Right::zero())
+    // }
 
     fn norm_squared(&self) -> f64 {
         self.0.norm_squared() + self.1.norm_squared()
@@ -87,21 +89,40 @@ impl<const N: usize, T: NeuraVectorSpace + Clone> NeuraVectorSpace for [T; N] {
         }
     }
 
-    fn zero() -> Self {
-        let mut res: Vec<T> = Vec::with_capacity(N);
+    // fn zero() -> Self {
+    //     let mut res: Vec<T> = Vec::with_capacity(N);
 
-        for _ in 0..N {
-            res.push(T::zero());
-        }
+    //     for _ in 0..N {
+    //         res.push(T::zero());
+    //     }
 
-        res.try_into().unwrap_or_else(|_| {
-            // TODO: check that this panic is optimized away
-            unreachable!()
-        })
-    }
+    //     res.try_into().unwrap_or_else(|_| {
+    //         // TODO: check that this panic is optimized away
+    //         unreachable!()
+    //     })
+    // }
 
     fn norm_squared(&self) -> f64 {
         self.iter().map(T::norm_squared).sum()
+    }
+}
+
+impl<F: Float, R: nalgebra::Dim, C: nalgebra::Dim, S: nalgebra::RawStorage<F, R, C>> NeuraVectorSpace for Matrix<F, R, C, S>
+where
+    Matrix<F, R, C, S>: std::ops::MulAssign<F>,
+    for<'c> Matrix<F, R, C, S>: std::ops::AddAssign<&'c Matrix<F, R, C, S>>,
+    F: From<f64> + Into<f64>
+{
+    fn add_assign(&mut self, other: &Self) {
+        *self += other;
+    }
+
+    fn mul_assign(&mut self, by: f64) {
+        *self *= <F as From<f64>>::from(by);
+    }
+
+    fn norm_squared(&self) -> f64 {
+        self.iter().map(|x| *x * *x).reduce(|sum, curr| sum + curr).unwrap_or(F::zero()).into()
     }
 }
 
@@ -116,9 +137,9 @@ macro_rules! base {
                 std::ops::MulAssign::mul_assign(self, other as $type);
             }
 
-            fn zero() -> Self {
-                <Self as Default>::default()
-            }
+            // fn zero() -> Self {
+            //     <Self as Default>::default()
+            // }
 
             fn norm_squared(&self) -> f64 {
                 (self * self) as f64
