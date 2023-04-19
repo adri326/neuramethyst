@@ -97,6 +97,31 @@ impl<F: Float + std::fmt::Debug + 'static, Act: NeuraDerivable<F>, Reg: NeuraDer
     }
 }
 
+impl<F, Act, Reg, R: Rng> NeuraDenseLayerPartial<F, Act, Reg, R> {
+    pub fn activation<Act2>(self, activation: Act2) -> NeuraDenseLayerPartial<F, Act2, Reg, R> {
+        NeuraDenseLayerPartial {
+            activation,
+            regularization: self.regularization,
+            output_size: self.output_size,
+            rng: self.rng,
+            phantom: PhantomData,
+        }
+    }
+
+    pub fn regularization<Reg2>(
+        self,
+        regularization: Reg2,
+    ) -> NeuraDenseLayerPartial<F, Act, Reg2, R> {
+        NeuraDenseLayerPartial {
+            activation: self.activation,
+            regularization,
+            output_size: self.output_size,
+            rng: self.rng,
+            phantom: PhantomData,
+        }
+    }
+}
+
 impl<
         F: Float + std::fmt::Debug + 'static,
         Act: NeuraDerivable<F>,

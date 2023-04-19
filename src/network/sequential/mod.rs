@@ -275,9 +275,9 @@ mod test {
         ];
 
         let network = neura_sequential![
-            neura_layer!("dense", 16, Relu),
-            neura_layer!("dense", 12, Relu),
-            neura_layer!("dense", 2, Relu)
+            neura_layer!("dense", 16).activation(Relu),
+            neura_layer!("dense", 12).activation(Relu),
+            neura_layer!("dense", 2).activation(Relu)
         ]
         .construct(NeuraShape::Vector(2))
         .unwrap();

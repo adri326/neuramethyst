@@ -23,8 +23,8 @@ impl<R: Rng> NeuraDropoutLayer<R> {
         }
     }
 
-    fn apply_dropout<F: Float + From<f64>>(&self, vector: &mut DVector<F>) {
-        let multiplier = <F as From<f64>>::from(self.multiplier);
+    fn apply_dropout<F: Float>(&self, vector: &mut DVector<F>) {
+        let multiplier = F::from(self.multiplier).unwrap();
         for (index, &dropout) in self.mask.iter().enumerate() {
             if dropout {
                 vector[index] = F::zero();
@@ -51,7 +51,7 @@ impl<R: Rng> NeuraPartialLayer for NeuraDropoutLayer<R> {
     }
 }
 
-impl<R: Rng, F: Float + From<f64>> NeuraLayer<DVector<F>> for NeuraDropoutLayer<R> {
+impl<R: Rng, F: Float> NeuraLayer<DVector<F>> for NeuraDropoutLayer<R> {
     type Output = DVector<F>;
 
     fn eval(&self, input: &DVector<F>) -> Self::Output {
@@ -61,7 +61,7 @@ impl<R: Rng, F: Float + From<f64>> NeuraLayer<DVector<F>> for NeuraDropoutLayer<
     }
 }
 
-impl<R: Rng, F: Float + From<f64>> NeuraTrainableLayer<DVector<F>> for NeuraDropoutLayer<R> {
+impl<R: Rng, F: Float> NeuraTrainableLayer<DVector<F>> for NeuraDropoutLayer<R> {
     type Gradient = ();
 
     fn default_gradient(&self) -> Self::Gradient {

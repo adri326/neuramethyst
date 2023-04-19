@@ -9,9 +9,9 @@ use neuramethyst::prelude::*;
 
 fn main() {
     let mut network = neura_sequential![
-        neura_layer!("dense", 4, Relu),
-        neura_layer!("dense", 3, Relu),
-        neura_layer!("dense", 1, Relu)
+        neura_layer!("dense", 4).activation(Relu),
+        neura_layer!("dense", 3).activation(Relu),
+        neura_layer!("dense", 1).activation(Relu)
     ]
     .construct(NeuraShape::Vector(2))
     .unwrap();

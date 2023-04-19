@@ -2,6 +2,7 @@
 
 use std::io::Write;
 
+use nalgebra::{dvector, DVector};
 #[allow(unused_imports)]
 use neuramethyst::derivable::activation::{LeakyRelu, Linear, Relu, Tanh};
 use neuramethyst::derivable::loss::CrossEntropy;
@@ -12,26 +13,28 @@ use rand::Rng;
 
 fn main() {
     let mut network = neura_sequential![
-        neura_layer!("dense", 2, 8; Relu, NeuraL1(0.001)),
+        neura_layer!("dense", 8),
         neura_layer!("dropout", 0.25),
-        neura_layer!("dense", 2; Linear, NeuraL1(0.001)),
-        neura_layer!("softmax"),
-    ];
+        neura_layer!("dense", 2).activation(Linear),
+        // neura_layer!("softmax"),
+    ]
+    .construct(NeuraShape::Vector(2))
+    .unwrap();
 
     let inputs = (0..1).cycle().map(move |_| {
-        let mut rng = rand::thread_rng(); // TODO: move out
+        let mut rng = rand::thread_rng();
         let category = rng.gen_bool(0.5) as usize;
         let (x, y) = if category == 0 {
-            let radius: f64 = rng.gen_range(0.0..2.0);
-            let angle = rng.gen_range(0.0..std::f64::consts::TAU);
+            let radius: f32 = rng.gen_range(0.0..2.0);
+            let angle = rng.gen_range(0.0..std::f32::consts::TAU);
             (angle.cos() * radius, angle.sin() * radius)
         } else {
-            let radius: f64 = rng.gen_range(3.0..5.0);
-            let angle = rng.gen_range(0.0..std::f64::consts::TAU);
+            let radius: f32 = rng.gen_range(3.0..5.0);
+            let angle = rng.gen_range(0.0..std::f32::consts::TAU);
             (angle.cos() * radius, angle.sin() * radius)
         };
 
-        ([x, y].into(), neuramethyst::one_hot::<2>(category))
+        (dvector![x, y], one_hot(category, 2))
     });
 
     let test_inputs: Vec<_> = inputs.clone().take(10).collect();
@@ -50,7 +53,13 @@ fn main() {
 
             let network = network.clone();
             draw_neuron_activation(
-                |input| network.eval(&input.into()).into_iter().collect(),
+                |input| {
+                    network
+                        .eval(&dvector![input[0] as f32, input[1] as f32])
+                        .into_iter()
+                        .map(|x| *x as f64)
+                        .collect()
+                },
                 6.0,
             );
             println!("{}", epoch);
@@ -75,7 +84,7 @@ fn main() {
 
     let mut file = std::fs::File::create("target/bivariate.csv").unwrap();
     for (input, _target) in test_inputs {
-        let guess = neuramethyst::argmax(network.eval(&input).as_ref());
+        let guess = neuramethyst::argmax(network.eval(&input).as_slice());
         writeln!(&mut file, "{},{},{}", input[0], input[1], guess).unwrap();
     }
 }
@@ -113,4 +122,12 @@ fn draw_neuron_activation<F: Fn([f64; 2]) -> Vec<f64>>(callback: F, scale: f64) 
     };
 
     viuer::print(&image::DynamicImage::ImageRgb8(image), &config).unwrap();
+}
+
+fn one_hot(value: usize, categories: usize) -> DVector<f32> {
+    let mut res = DVector::from_element(categories, 0.0);
+    if value < categories {
+        res[value] = 1.0;
+    }
+    res
 }

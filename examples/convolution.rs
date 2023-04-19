@@ -71,7 +71,7 @@ fn main() {
         // neura_layer!("pool1d", {14 * 2}, 7; Max),
         neura_layer!("unstable_flatten"),
         neura_layer!("dropout", 0.2),
-        neura_layer!("dense", 10; Linear),
+        neura_layer!("dense", 10).activation(Linear),
         neura_layer!("softmax")
     ];
 

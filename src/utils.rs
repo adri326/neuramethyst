@@ -110,7 +110,7 @@ pub fn one_hot<const N: usize>(value: usize) -> NeuraVector<N, f64> {
     res
 }
 
-pub fn argmax(array: &[f64]) -> usize {
+pub fn argmax<F: PartialOrd>(array: &[F]) -> usize {
     let mut res = 0;
 
     for n in 1..array.len() {

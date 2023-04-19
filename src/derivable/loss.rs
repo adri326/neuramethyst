@@ -45,41 +45,44 @@ impl<F: Float + std::fmt::Debug + 'static> NeuraLoss<DVector<F>> for Euclidean {
 /// This guarantee is notably not given by the `Relu`, `LeakyRelu` and `Swish` activation functions,
 /// so you should pick another activation on the last layer, or pass it into a `NeuraSoftmax` layer.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct CrossEntropy<const N: usize>;
+pub struct CrossEntropy;
 
 const DERIVATIVE_CAP: f64 = 100.0;
 const LOG_MIN: f64 = 0.00001;
 
-impl<const N: usize> CrossEntropy<N> {
+impl CrossEntropy {
     #[inline(always)]
-    pub fn eval_single(&self, target: f64, actual: f64) -> f64 {
-        -target * actual.max(LOG_MIN).log(std::f64::consts::E)
+    pub fn eval_single<F: Float>(&self, target: F, actual: F) -> F {
+        -target
+            * actual
+                .max(F::from(LOG_MIN).unwrap())
+                .log(F::from(std::f64::consts::E).unwrap())
     }
 
     #[inline(always)]
-    pub fn derivate_single(&self, target: f64, actual: f64) -> f64 {
-        -(target / actual).min(DERIVATIVE_CAP)
+    pub fn derivate_single<F: Float>(&self, target: F, actual: F) -> F {
+        -(target / actual).min(F::from(DERIVATIVE_CAP).unwrap())
     }
 }
 
-impl<const N: usize> NeuraLoss<NeuraVector<N, f64>> for CrossEntropy<N> {
-    type Target = NeuraVector<N, f64>;
-    type Output = f64;
+impl<F: Float + std::fmt::Debug + 'static> NeuraLoss<DVector<F>> for CrossEntropy {
+    type Target = DVector<F>;
+    type Output = F;
 
-    fn eval(&self, target: &Self::Target, actual: &NeuraVector<N, f64>) -> f64 {
-        let mut result = 0.0;
+    fn eval(&self, target: &Self::Target, actual: &DVector<F>) -> F {
+        let mut result = F::zero();
 
-        for i in 0..N {
-            result += self.eval_single(target[i], actual[i]);
+        for i in 0..target.len() {
+            result = result + self.eval_single(target[i], actual[i]);
         }
 
         result
     }
 
-    fn nabla(&self, target: &Self::Target, actual: &NeuraVector<N, f64>) -> NeuraVector<N, f64> {
-        let mut result = NeuraVector::default();
+    fn nabla(&self, target: &Self::Target, actual: &DVector<F>) -> DVector<F> {
+        let mut result = DVector::from_element(target.len(), F::zero());
 
-        for i in 0..N {
+        for i in 0..target.len() {
             result[i] = self.derivate_single(target[i], actual[i]);
         }
 

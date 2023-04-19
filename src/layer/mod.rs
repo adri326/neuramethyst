@@ -104,12 +104,21 @@ impl<Input: Clone> NeuraTrainableLayer<Input> for () {
 /// Temporary implementation of neura_layer
 #[macro_export]
 macro_rules! neura_layer {
-    ( "dense", $output:expr, $activation:expr ) => {
-        $crate::layer::dense::NeuraDenseLayer::new_partial(
-            $output,
-            rand::thread_rng(),
-            $activation,
-            $crate::derivable::regularize::NeuraL0,
-        ) as $crate::layer::dense::NeuraDenseLayerPartial<f32, _, _, _>
+    ( "dense", $output:expr, $type:ty ) => {{
+        let res: $crate::layer::dense::NeuraDenseLayerPartial<$type, _, _, _> =
+            $crate::layer::dense::NeuraDenseLayer::new_partial(
+                $output,
+                rand::thread_rng(),
+                $crate::derivable::activation::LeakyRelu(0.1),
+                $crate::derivable::regularize::NeuraL0,
+            );
+        res
+    }};
+    ( "dense", $output:expr ) => {
+        $crate::neura_layer!("dense", $output, f32)
+    };
+
+    ( "dropout", $probability:expr ) => {
+        $crate::layer::dropout::NeuraDropoutLayer::new($probability, rand::thread_rng())
     };
 }
