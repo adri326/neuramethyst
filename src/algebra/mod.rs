@@ -107,11 +107,12 @@ impl<const N: usize, T: NeuraVectorSpace + Clone> NeuraVectorSpace for [T; N] {
     }
 }
 
-impl<F: Float, R: nalgebra::Dim, C: nalgebra::Dim, S: nalgebra::RawStorage<F, R, C>> NeuraVectorSpace for Matrix<F, R, C, S>
+impl<F: Float, R: nalgebra::Dim, C: nalgebra::Dim, S: nalgebra::RawStorage<F, R, C>>
+    NeuraVectorSpace for Matrix<F, R, C, S>
 where
     Matrix<F, R, C, S>: std::ops::MulAssign<F>,
     for<'c> Matrix<F, R, C, S>: std::ops::AddAssign<&'c Matrix<F, R, C, S>>,
-    F: From<f64> + Into<f64>
+    F: From<f64> + Into<f64>,
 {
     fn add_assign(&mut self, other: &Self) {
         *self += other;
@@ -122,7 +123,11 @@ where
     }
 
     fn norm_squared(&self) -> f64 {
-        self.iter().map(|x| *x * *x).reduce(|sum, curr| sum + curr).unwrap_or(F::zero()).into()
+        self.iter()
+            .map(|x| *x * *x)
+            .reduce(|sum, curr| sum + curr)
+            .unwrap_or(F::zero())
+            .into()
     }
 }
 

@@ -2,17 +2,19 @@
 
 use nalgebra::dvector;
 
+use neuramethyst::cycle_shuffling;
 use neuramethyst::derivable::activation::Relu;
 use neuramethyst::derivable::loss::Euclidean;
 use neuramethyst::prelude::*;
-use neuramethyst::cycle_shuffling;
 
 fn main() {
     let mut network = neura_sequential![
         neura_layer!("dense", 4, Relu),
         neura_layer!("dense", 3, Relu),
         neura_layer!("dense", 1, Relu)
-    ].construct(NeuraShape::Vector(2)).unwrap();
+    ]
+    .construct(NeuraShape::Vector(2))
+    .unwrap();
 
     let inputs = [
         (dvector![0.0, 0.0], dvector![0.0]),

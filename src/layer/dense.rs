@@ -17,12 +17,8 @@ pub struct NeuraDenseLayer<F: Float, Act: NeuraDerivable<F>, Reg: NeuraDerivable
 }
 
 #[derive(Clone, Debug)]
-pub struct NeuraDenseLayerPartial<
-    F: Float,
-    Act: NeuraDerivable<F>,
-    Reg: NeuraDerivable<F>,
-    R: Rng,
-> {
+pub struct NeuraDenseLayerPartial<F: Float, Act: NeuraDerivable<F>, Reg: NeuraDerivable<F>, R: Rng>
+{
     activation: Act,
     regularization: Reg,
     output_size: usize,
@@ -143,7 +139,13 @@ impl<
 }
 
 impl<
-        F: Float + From<f64> + Into<f64> + std::fmt::Debug + 'static + std::ops::AddAssign + std::ops::MulAssign,
+        F: Float
+            + From<f64>
+            + Into<f64>
+            + std::fmt::Debug
+            + 'static
+            + std::ops::AddAssign
+            + std::ops::MulAssign,
         Act: NeuraDerivable<F>,
         Reg: NeuraDerivable<F>,
     > NeuraTrainableLayer<DVector<F>> for NeuraDenseLayer<F, Act, Reg>
@@ -184,7 +186,10 @@ impl<
     }
 
     fn regularize_layer(&self) -> Self::Gradient {
-        (self.weights.map(|x| self.regularization.derivate(x)), DVector::zeros(self.bias.shape().0))
+        (
+            self.weights.map(|x| self.regularization.derivate(x)),
+            DVector::zeros(self.bias.shape().0),
+        )
     }
 
     fn apply_gradient(&mut self, gradient: &Self::Gradient) {

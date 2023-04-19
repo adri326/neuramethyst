@@ -1,5 +1,3 @@
-use num::Float;
-
 use crate::algebra::NeuraVectorSpace;
 
 pub mod dense;
@@ -7,8 +5,8 @@ pub use dense::NeuraDenseLayer;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum NeuraShape {
-    Vector(usize),        // entries
-    Matrix(usize, usize), // rows, columns
+    Vector(usize),               // entries
+    Matrix(usize, usize),        // rows, columns
     Tensor(usize, usize, usize), // rows, columns, channels
 }
 
@@ -17,7 +15,7 @@ impl NeuraShape {
         match self {
             NeuraShape::Vector(entries) => *entries,
             NeuraShape::Matrix(rows, columns) => rows * columns,
-            NeuraShape::Tensor(rows, columns, channels) => rows * columns * channels
+            NeuraShape::Tensor(rows, columns, channels) => rows * columns * channels,
         }
     }
 }
@@ -31,6 +29,7 @@ pub trait NeuraLayer<Input> {
 impl<Input: Clone> NeuraLayer<Input> for () {
     type Output = Input;
 
+    #[inline(always)]
     fn eval(&self, input: &Input) -> Self::Output {
         input.clone()
     }
@@ -62,11 +61,7 @@ pub trait NeuraTrainableLayer<Input>: NeuraLayer<Input> {
     /// The function should then return a pair `(epsilon_{l-1}, δW_l)`,
     /// with `epsilon_{l-1}` being multiplied by `f_{l-1}'(activation)` by the next layer to obtain `delta_{l-1}`.
     /// Using this intermediate value for `delta` allows us to isolate it computation to the respective layers.
-    fn backprop_layer(
-        &self,
-        input: &Input,
-        epsilon: Self::Output,
-    ) -> (Input, Self::Gradient);
+    fn backprop_layer(&self, input: &Input, epsilon: Self::Output) -> (Input, Self::Gradient);
 
     /// Computes the regularization
     fn regularize_layer(&self) -> Self::Gradient;
@@ -80,10 +75,39 @@ pub trait NeuraTrainableLayer<Input>: NeuraLayer<Input> {
     fn prepare_layer(&mut self, is_training: bool) {}
 }
 
+impl<Input: Clone> NeuraTrainableLayer<Input> for () {
+    type Gradient = ();
+
+    #[inline(always)]
+    fn default_gradient(&self) -> Self::Gradient {
+        ()
+    }
+
+    #[inline(always)]
+    fn backprop_layer(&self, _input: &Input, epsilon: Self::Output) -> (Input, Self::Gradient) {
+        (epsilon, ())
+    }
+
+    #[inline(always)]
+    fn regularize_layer(&self) -> Self::Gradient {
+        ()
+    }
+
+    #[inline(always)]
+    fn apply_gradient(&mut self, _gradient: &Self::Gradient) {
+        // Noop
+    }
+}
+
 /// Temporary implementation of neura_layer
 #[macro_export]
 macro_rules! neura_layer {
     ( "dense", $output:expr, $activation:expr ) => {
-        $crate::layer::dense::NeuraDenseLayer::new_partial($output, rand::thread_rng(), $activation, $crate::derivable::regularize::NeuraL0)
-    }
+        $crate::layer::dense::NeuraDenseLayer::new_partial(
+            $output,
+            rand::thread_rng(),
+            $activation,
+            $crate::derivable::regularize::NeuraL0,
+        )
+    };
 }

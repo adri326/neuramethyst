@@ -24,11 +24,7 @@ impl NeuraLoss for Euclidean {
     }
 
     #[inline]
-    fn nabla(
-        &self,
-        target: &DVector<f64>,
-        actual: &DVector<f64>,
-    ) -> DVector<f64> {
+    fn nabla(&self, target: &DVector<f64>, actual: &DVector<f64>) -> DVector<f64> {
         let mut res = DVector::zeros(target.len());
 
         // ∂E(y)/∂yᵢ = yᵢ - yᵢ'

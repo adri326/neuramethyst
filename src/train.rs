@@ -1,9 +1,4 @@
-use crate::{
-    algebra::{NeuraVector, NeuraVectorSpace},
-    derivable::NeuraLoss,
-    layer::NeuraLayer,
-    network::{sequential::NeuraSequential, NeuraTrainableNetwork},
-};
+use crate::{algebra::NeuraVectorSpace, derivable::NeuraLoss, network::NeuraTrainableNetwork};
 
 pub trait NeuraGradientSolver<Input, Target, Trainable: NeuraTrainableNetwork<Input>> {
     fn get_gradient(
@@ -11,14 +6,9 @@ pub trait NeuraGradientSolver<Input, Target, Trainable: NeuraTrainableNetwork<In
         trainable: &Trainable,
         input: &Input,
         target: &Target,
-    ) -> Trainable::Delta;
+    ) -> Trainable::Gradient;
 
-    fn score(
-        &self,
-        trainable: &Trainable,
-        input: &Input,
-        target: &Target,
-    ) -> f64;
+    fn score(&self, trainable: &Trainable, input: &Input, target: &Target) -> f64;
 }
 
 #[non_exhaustive]
@@ -32,24 +22,23 @@ impl<Loss: NeuraLoss + Clone> NeuraBackprop<Loss> {
     }
 }
 
-impl<Input, Target, Trainable: NeuraTrainableNetwork<Input>, Loss: NeuraLoss<Input = Trainable::Output, Target = Target> + Clone>
-    NeuraGradientSolver<Input, Target, Trainable> for NeuraBackprop<Loss>
+impl<
+        Input,
+        Target,
+        Trainable: NeuraTrainableNetwork<Input>,
+        Loss: NeuraLoss<Input = Trainable::Output, Target = Target> + Clone,
+    > NeuraGradientSolver<Input, Target, Trainable> for NeuraBackprop<Loss>
 {
     fn get_gradient(
         &self,
         trainable: &Trainable,
         input: &Input,
         target: &Target,
-    ) -> Trainable::Delta {
+    ) -> Trainable::Gradient {
         trainable.backpropagate(input, target, self.loss.clone()).1
     }
 
-    fn score(
-        &self,
-        trainable: &Trainable,
-        input: &Input,
-        target: &Target,
-    ) -> f64 {
+    fn score(&self, trainable: &Trainable, input: &Input, target: &Target) -> f64 {
         let output = trainable.eval(&input);
         self.loss.eval(target, &output)
     }
@@ -187,14 +176,14 @@ impl NeuraBatchedTrainer {
 
 #[cfg(test)]
 mod test {
-    use nalgebra::{DMatrix, dmatrix, dvector};
+    use nalgebra::{dmatrix, dvector};
 
     use super::*;
     use crate::{
         assert_approx,
         derivable::{activation::Linear, loss::Euclidean, regularize::NeuraL0},
-        layer::NeuraDenseLayer,
-        network::sequential::NeuraSequentialTail,
+        layer::{NeuraLayer, NeuraDenseLayer},
+        network::sequential::{NeuraSequentialTail, NeuraSequential},
         neura_sequential,
     };
 
@@ -242,18 +231,14 @@ mod test {
         assert_approx!(0.48, intermediary[1], EPSILON);
         assert_approx!(0.191, network.eval(&input)[0], EPSILON);
 
-        assert_approx!(
-            0.327,
-            Euclidean.eval(&target, &network.eval(&input)),
-            0.001
-        );
+        assert_approx!(0.327, Euclidean.eval(&target, &network.eval(&input)), 0.001);
 
         let delta = network.eval(&input)[0] - target[0];
 
         let (gradient_first, gradient_second) =
             NeuraBackprop::new(Euclidean).get_gradient(&network, &input, &target);
         let gradient_first = gradient_first.0;
-        let gradient_second = gradient_second.0.0;
+        let gradient_second = gradient_second.0 .0;
 
         assert_approx!(gradient_second[0], intermediary[0] * delta, EPSILON);
         assert_approx!(gradient_second[1], intermediary[1] * delta, EPSILON);
