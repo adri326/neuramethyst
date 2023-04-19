@@ -17,8 +17,7 @@ pub struct NeuraDenseLayer<F: Float, Act: NeuraDerivable<F>, Reg: NeuraDerivable
 }
 
 #[derive(Clone, Debug)]
-pub struct NeuraDenseLayerPartial<F: Float, Act: NeuraDerivable<F>, Reg: NeuraDerivable<F>, R: Rng>
-{
+pub struct NeuraDenseLayerPartial<F, Act, Reg, R: Rng> {
     activation: Act,
     regularization: Reg,
     output_size: usize,
@@ -26,11 +25,8 @@ pub struct NeuraDenseLayerPartial<F: Float, Act: NeuraDerivable<F>, Reg: NeuraDe
     phantom: PhantomData<F>,
 }
 
-impl<
-        F: Float + From<f64> + std::fmt::Debug + 'static,
-        Act: NeuraDerivable<F>,
-        Reg: NeuraDerivable<F>,
-    > NeuraDenseLayer<F, Act, Reg>
+impl<F: Float + std::fmt::Debug + 'static, Act: NeuraDerivable<F>, Reg: NeuraDerivable<F>>
+    NeuraDenseLayer<F, Act, Reg>
 {
     pub fn new(
         weights: DMatrix<F>,
@@ -58,20 +54,28 @@ impl<
     where
         rand_distr::StandardNormal: rand_distr::Distribution<F>,
     {
-        let distribution = rand_distr::Normal::new(
-            F::zero(),
-            <F as From<f64>>::from(
-                activation.variance_hint() * 2.0 / (input_size as f64 + output_size as f64),
-            ),
-        )
-        .unwrap();
+        let stddev = activation.variance_hint() * 2.0 / (input_size as f64 + output_size as f64);
+        let stddev = F::from(stddev).unwrap_or_else(|| {
+            panic!(
+                "Couldn't convert stddev ({}) to type {}",
+                stddev,
+                stringify!(F)
+            );
+        });
+        let bias = F::from(activation.bias_hint()).unwrap_or_else(|| {
+            panic!(
+                "Couldn't convert bias ({}) to type {}",
+                activation.bias_hint(),
+                stringify!(F)
+            );
+        });
+
+        let distribution = rand_distr::Normal::new(F::zero(), stddev)
+            .expect("Couldn't create normal distribution");
 
         Self {
             weights: DMatrix::from_distribution(output_size, input_size, &distribution, rng),
-            bias: DVector::from_element(
-                output_size,
-                <F as From<f64>>::from(activation.bias_hint()),
-            ),
+            bias: DVector::from_element(output_size, bias),
             activation,
             regularization,
         }
@@ -94,7 +98,7 @@ impl<
 }
 
 impl<
-        F: Float + From<f64> + std::fmt::Debug + 'static,
+        F: Float + std::fmt::Debug + 'static,
         Act: NeuraDerivable<F>,
         Reg: NeuraDerivable<F>,
         R: Rng,
@@ -122,7 +126,7 @@ where
 }
 
 impl<
-        F: Float + From<f64> + std::fmt::Debug + 'static + std::ops::AddAssign + std::ops::MulAssign,
+        F: Float + std::fmt::Debug + 'static + std::ops::AddAssign + std::ops::MulAssign,
         Act: NeuraDerivable<F>,
         Reg: NeuraDerivable<F>,
     > NeuraLayer<DVector<F>> for NeuraDenseLayer<F, Act, Reg>
@@ -139,13 +143,7 @@ impl<
 }
 
 impl<
-        F: Float
-            + From<f64>
-            + Into<f64>
-            + std::fmt::Debug
-            + 'static
-            + std::ops::AddAssign
-            + std::ops::MulAssign,
+        F: Float + std::fmt::Debug + 'static + std::ops::AddAssign + std::ops::MulAssign,
         Act: NeuraDerivable<F>,
         Reg: NeuraDerivable<F>,
     > NeuraTrainableLayer<DVector<F>> for NeuraDenseLayer<F, Act, Reg>

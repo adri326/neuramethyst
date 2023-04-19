@@ -1,4 +1,5 @@
 use nalgebra::DVector;
+use num::Float;
 
 use crate::algebra::NeuraVector;
 
@@ -7,24 +8,24 @@ use super::NeuraLoss;
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Euclidean;
 
-impl NeuraLoss for Euclidean {
-    type Input = DVector<f64>;
-    type Target = DVector<f64>;
+impl<F: Float + std::fmt::Debug + 'static> NeuraLoss<DVector<F>> for Euclidean {
+    type Target = DVector<F>;
+    type Output = F;
 
     #[inline]
-    fn eval(&self, target: &DVector<f64>, actual: &DVector<f64>) -> f64 {
+    fn eval(&self, target: &DVector<F>, actual: &DVector<F>) -> F {
         assert_eq!(target.shape(), actual.shape());
-        let mut sum_squared = 0.0;
+        let mut sum_squared = F::zero();
 
         for i in 0..target.len() {
-            sum_squared += (target[i] - actual[i]) * (target[i] - actual[i]);
+            sum_squared = sum_squared + (target[i] - actual[i]) * (target[i] - actual[i]);
         }
 
-        sum_squared * 0.5
+        sum_squared * F::from(0.5).unwrap()
     }
 
     #[inline]
-    fn nabla(&self, target: &DVector<f64>, actual: &DVector<f64>) -> DVector<f64> {
+    fn nabla(&self, target: &DVector<F>, actual: &DVector<F>) -> DVector<F> {
         let mut res = DVector::zeros(target.len());
 
         // ∂E(y)/∂yᵢ = yᵢ - yᵢ'
@@ -61,11 +62,11 @@ impl<const N: usize> CrossEntropy<N> {
     }
 }
 
-impl<const N: usize> NeuraLoss for CrossEntropy<N> {
-    type Input = NeuraVector<N, f64>;
+impl<const N: usize> NeuraLoss<NeuraVector<N, f64>> for CrossEntropy<N> {
     type Target = NeuraVector<N, f64>;
+    type Output = f64;
 
-    fn eval(&self, target: &Self::Target, actual: &Self::Input) -> f64 {
+    fn eval(&self, target: &Self::Target, actual: &NeuraVector<N, f64>) -> f64 {
         let mut result = 0.0;
 
         for i in 0..N {
@@ -75,7 +76,7 @@ impl<const N: usize> NeuraLoss for CrossEntropy<N> {
         result
     }
 
-    fn nabla(&self, target: &Self::Target, actual: &Self::Input) -> Self::Input {
+    fn nabla(&self, target: &Self::Target, actual: &NeuraVector<N, f64>) -> NeuraVector<N, f64> {
         let mut result = NeuraVector::default();
 
         for i in 0..N {

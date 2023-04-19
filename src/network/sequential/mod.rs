@@ -146,7 +146,7 @@ impl<
         self.child_network.apply_gradient(&gradient.1);
     }
 
-    fn backpropagate<Loss: NeuraLoss<Input = Self::Output>>(
+    fn backpropagate<Loss: NeuraLoss<Self::Output>>(
         &self,
         input: &Input,
         target: &Loss::Target,
@@ -193,7 +193,7 @@ impl<Input: Clone> NeuraTrainableNetwork<Input> for () {
     }
 
     #[inline(always)]
-    fn backpropagate<Loss: NeuraLoss<Input = Self::Output>>(
+    fn backpropagate<Loss: NeuraLoss<Self::Output>>(
         &self,
         final_activation: &Input,
         target: &Loss::Target,
@@ -282,6 +282,6 @@ mod test {
         .construct(NeuraShape::Vector(2))
         .unwrap();
 
-        network.eval(&dvector![0.0f64, 0.0]);
+        network.eval(&dvector![0.0, 0.0]);
     }
 }

@@ -112,14 +112,13 @@ impl<F: Float, R: nalgebra::Dim, C: nalgebra::Dim, S: nalgebra::RawStorage<F, R,
 where
     Matrix<F, R, C, S>: std::ops::MulAssign<F>,
     for<'c> Matrix<F, R, C, S>: std::ops::AddAssign<&'c Matrix<F, R, C, S>>,
-    F: From<f64> + Into<f64>,
 {
     fn add_assign(&mut self, other: &Self) {
         *self += other;
     }
 
     fn mul_assign(&mut self, by: f64) {
-        *self *= <F as From<f64>>::from(by);
+        *self *= F::from(by).unwrap();
     }
 
     fn norm_squared(&self) -> f64 {
@@ -127,7 +126,8 @@ where
             .map(|x| *x * *x)
             .reduce(|sum, curr| sum + curr)
             .unwrap_or(F::zero())
-            .into()
+            .to_f64()
+            .unwrap_or(0.0)
     }
 }
 
@@ -141,10 +141,6 @@ macro_rules! base {
             fn mul_assign(&mut self, other: f64) {
                 std::ops::MulAssign::mul_assign(self, other as $type);
             }
-
-            // fn zero() -> Self {
-            //     <Self as Default>::default()
-            // }
 
             fn norm_squared(&self) -> f64 {
                 (self * self) as f64

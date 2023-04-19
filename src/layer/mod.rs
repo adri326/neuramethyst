@@ -1,6 +1,8 @@
 use crate::algebra::NeuraVectorSpace;
 
 pub mod dense;
+pub mod dropout;
+
 pub use dense::NeuraDenseLayer;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -108,6 +110,6 @@ macro_rules! neura_layer {
             rand::thread_rng(),
             $activation,
             $crate::derivable::regularize::NeuraL0,
-        )
+        ) as $crate::layer::dense::NeuraDenseLayerPartial<f32, _, _, _>
     };
 }

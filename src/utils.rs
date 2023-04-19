@@ -128,7 +128,7 @@ macro_rules! assert_approx {
     ( $left:expr, $right:expr, $epsilon:expr ) => {
         let left = $left;
         let right = $right;
-        if (left - right).abs() >= $epsilon {
+        if ((left - right) as f64).abs() >= $epsilon as f64 {
             panic!("Expected {} to be approximately equal to {}", left, right);
         }
     };

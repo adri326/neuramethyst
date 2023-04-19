@@ -10,7 +10,7 @@ pub trait NeuraTrainableNetwork<Input>: NeuraLayer<Input> {
     fn apply_gradient(&mut self, gradient: &Self::Gradient);
 
     /// Should implement the backpropagation algorithm, see `NeuraTrainableLayer::backpropagate` for more information.
-    fn backpropagate<Loss: NeuraLoss<Input = Self::Output>>(
+    fn backpropagate<Loss: NeuraLoss<Self::Output>>(
         &self,
         input: &Input,
         target: &Loss::Target,

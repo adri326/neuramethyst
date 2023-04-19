@@ -1,3 +1,5 @@
+use num::ToPrimitive;
+
 use crate::{algebra::NeuraVectorSpace, derivable::NeuraLoss, network::NeuraTrainableNetwork};
 
 pub trait NeuraGradientSolver<Input, Target, Trainable: NeuraTrainableNetwork<Input>> {
@@ -12,11 +14,11 @@ pub trait NeuraGradientSolver<Input, Target, Trainable: NeuraTrainableNetwork<In
 }
 
 #[non_exhaustive]
-pub struct NeuraBackprop<Loss: NeuraLoss + Clone> {
+pub struct NeuraBackprop<Loss> {
     loss: Loss,
 }
 
-impl<Loss: NeuraLoss + Clone> NeuraBackprop<Loss> {
+impl<Loss> NeuraBackprop<Loss> {
     pub fn new(loss: Loss) -> Self {
         Self { loss }
     }
@@ -26,8 +28,10 @@ impl<
         Input,
         Target,
         Trainable: NeuraTrainableNetwork<Input>,
-        Loss: NeuraLoss<Input = Trainable::Output, Target = Target> + Clone,
+        Loss: NeuraLoss<Trainable::Output, Target = Target> + Clone,
     > NeuraGradientSolver<Input, Target, Trainable> for NeuraBackprop<Loss>
+where
+    <Loss as NeuraLoss<Trainable::Output>>::Output: ToPrimitive,
 {
     fn get_gradient(
         &self,
@@ -40,7 +44,7 @@ impl<
 
     fn score(&self, trainable: &Trainable, input: &Input, target: &Target) -> f64 {
         let output = trainable.eval(&input);
-        self.loss.eval(target, &output)
+        self.loss.eval(target, &output).to_f64().unwrap()
     }
 }
 
@@ -182,8 +186,8 @@ mod test {
     use crate::{
         assert_approx,
         derivable::{activation::Linear, loss::Euclidean, regularize::NeuraL0},
-        layer::{NeuraLayer, NeuraDenseLayer},
-        network::sequential::{NeuraSequentialTail, NeuraSequential},
+        layer::{NeuraDenseLayer, NeuraLayer},
+        network::sequential::{NeuraSequential, NeuraSequentialTail},
         neura_sequential,
     };
 
