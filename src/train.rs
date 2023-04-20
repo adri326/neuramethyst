@@ -1,52 +1,6 @@
-use num::ToPrimitive;
-
-use crate::{algebra::NeuraVectorSpace, derivable::NeuraLoss, network::NeuraTrainableNetwork};
-
-pub trait NeuraGradientSolver<Input, Target, Trainable: NeuraTrainableNetwork<Input>> {
-    fn get_gradient(
-        &self,
-        trainable: &Trainable,
-        input: &Input,
-        target: &Target,
-    ) -> Trainable::Gradient;
-
-    fn score(&self, trainable: &Trainable, input: &Input, target: &Target) -> f64;
-}
-
-#[non_exhaustive]
-pub struct NeuraBackprop<Loss> {
-    loss: Loss,
-}
-
-impl<Loss> NeuraBackprop<Loss> {
-    pub fn new(loss: Loss) -> Self {
-        Self { loss }
-    }
-}
-
-impl<
-        Input,
-        Target,
-        Trainable: NeuraTrainableNetwork<Input>,
-        Loss: NeuraLoss<Trainable::Output, Target = Target> + Clone,
-    > NeuraGradientSolver<Input, Target, Trainable> for NeuraBackprop<Loss>
-where
-    <Loss as NeuraLoss<Trainable::Output>>::Output: ToPrimitive,
-{
-    fn get_gradient(
-        &self,
-        trainable: &Trainable,
-        input: &Input,
-        target: &Target,
-    ) -> Trainable::Gradient {
-        trainable.backpropagate(input, target, self.loss.clone()).1
-    }
-
-    fn score(&self, trainable: &Trainable, input: &Input, target: &Target) -> f64 {
-        let output = trainable.eval(&input);
-        self.loss.eval(target, &output).to_f64().unwrap()
-    }
-}
+use crate::{
+    algebra::NeuraVectorSpace, network::NeuraTrainableNetworkBase, optimize::NeuraOptimizer,
+};
 
 #[non_exhaustive]
 pub struct NeuraBatchedTrainer {
@@ -118,8 +72,8 @@ impl NeuraBatchedTrainer {
     pub fn train<
         Input: Clone,
         Target: Clone,
-        Network: NeuraTrainableNetwork<Input>,
-        GradientSolver: NeuraGradientSolver<Input, Target, Network>,
+        Network: NeuraTrainableNetworkBase<Input>,
+        GradientSolver: NeuraOptimizer<Input, Target, Network>,
         Inputs: IntoIterator<Item = (Input, Target)>,
     >(
         &self,
@@ -185,10 +139,11 @@ mod test {
     use super::*;
     use crate::{
         assert_approx,
-        derivable::{activation::Linear, loss::Euclidean, regularize::NeuraL0},
+        derivable::{activation::Linear, loss::Euclidean, regularize::NeuraL0, NeuraLoss},
         layer::{dense::NeuraDenseLayer, NeuraLayer},
         network::sequential::{NeuraSequential, NeuraSequentialTail},
         neura_sequential,
+        optimize::NeuraBackprop,
     };
 
     #[test]

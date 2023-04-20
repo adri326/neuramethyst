@@ -1,7 +1,7 @@
-use super::NeuraTrainableNetwork;
+use super::{NeuraTrainableNetwork, NeuraTrainableNetworkBase};
 use crate::{
-    derivable::NeuraLoss,
     layer::{NeuraLayer, NeuraPartialLayer, NeuraShape, NeuraTrainableLayer},
+    optimize::{NeuraOptimizerFinal, NeuraOptimizerTransient},
 };
 
 mod construct;
@@ -129,10 +129,11 @@ impl<
 impl<
         Input,
         Layer: NeuraTrainableLayer<Input>,
-        ChildNetwork: NeuraTrainableNetwork<Layer::Output>,
-    > NeuraTrainableNetwork<Input> for NeuraSequential<Layer, ChildNetwork>
+        ChildNetwork: NeuraTrainableNetworkBase<Layer::Output>,
+    > NeuraTrainableNetworkBase<Input> for NeuraSequential<Layer, ChildNetwork>
 {
     type Gradient = (Layer::Gradient, Box<ChildNetwork::Gradient>);
+    type LayerOutput = Layer::Output;
 
     fn default_gradient(&self) -> Self::Gradient {
         (
@@ -144,25 +145,6 @@ impl<
     fn apply_gradient(&mut self, gradient: &Self::Gradient) {
         self.layer.apply_gradient(&gradient.0);
         self.child_network.apply_gradient(&gradient.1);
-    }
-
-    fn backpropagate<Loss: NeuraLoss<Self::Output>>(
-        &self,
-        input: &Input,
-        target: &Loss::Target,
-        loss: Loss,
-    ) -> (Input, Self::Gradient) {
-        let next_activation = self.layer.eval(input);
-        let (backprop_gradient, weights_gradient) =
-            self.child_network
-                .backpropagate(&next_activation, target, loss);
-        let (backprop_gradient, layer_gradient) =
-            self.layer.backprop_layer(input, backprop_gradient);
-
-        (
-            backprop_gradient,
-            (layer_gradient, Box::new(weights_gradient)),
-        )
     }
 
     fn regularize(&self) -> Self::Gradient {
@@ -179,8 +161,9 @@ impl<
 }
 
 /// A dummy implementation of `NeuraTrainableNetwork`, which simply calls `loss.eval` in `backpropagate`.
-impl<Input: Clone> NeuraTrainableNetwork<Input> for () {
+impl<Input: Clone> NeuraTrainableNetworkBase<Input> for () {
     type Gradient = ();
+    type LayerOutput = Input;
 
     #[inline(always)]
     fn default_gradient(&self) -> () {
@@ -193,18 +176,6 @@ impl<Input: Clone> NeuraTrainableNetwork<Input> for () {
     }
 
     #[inline(always)]
-    fn backpropagate<Loss: NeuraLoss<Self::Output>>(
-        &self,
-        final_activation: &Input,
-        target: &Loss::Target,
-        loss: Loss,
-    ) -> (Input, Self::Gradient) {
-        let backprop_epsilon = loss.nabla(target, &final_activation);
-
-        (backprop_epsilon, ())
-    }
-
-    #[inline(always)]
     fn regularize(&self) -> () {
         ()
     }
@@ -212,6 +183,44 @@ impl<Input: Clone> NeuraTrainableNetwork<Input> for () {
     #[inline(always)]
     fn prepare(&mut self, _is_training: bool) {
         // Noop
+    }
+}
+
+impl<
+        Input,
+        Layer: NeuraTrainableLayer<Input>,
+        Optimizer: NeuraOptimizerTransient<Layer::Output>,
+        ChildNetwork: NeuraTrainableNetworkBase<Layer::Output>,
+    > NeuraTrainableNetwork<Input, Optimizer> for NeuraSequential<Layer, ChildNetwork>
+where
+    ChildNetwork: NeuraTrainableNetwork<Layer::Output, Optimizer>,
+{
+    fn traverse(
+        &self,
+        input: &Input,
+        optimizer: &Optimizer,
+    ) -> Optimizer::Output<Input, Self::Gradient> {
+        let next_activation = self.layer.eval(input);
+        let child_result = self.child_network.traverse(&next_activation, optimizer);
+
+        optimizer.eval_layer(
+            &self.layer,
+            input,
+            child_result,
+            |layer_gradient, child_gradient| (layer_gradient, Box::new(child_gradient)),
+        )
+    }
+}
+
+impl<Input: Clone, Optimizer: NeuraOptimizerFinal<Input>> NeuraTrainableNetwork<Input, Optimizer>
+    for ()
+{
+    fn traverse(
+        &self,
+        input: &Input,
+        optimizer: &Optimizer,
+    ) -> Optimizer::Output<Input, Self::Gradient> {
+        optimizer.eval_final(input.clone())
     }
 }
 
