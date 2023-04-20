@@ -186,7 +186,7 @@ mod test {
     use crate::{
         assert_approx,
         derivable::{activation::Linear, loss::Euclidean, regularize::NeuraL0},
-        layer::{NeuraDenseLayer, NeuraLayer},
+        layer::{dense::NeuraDenseLayer, NeuraLayer},
         network::sequential::{NeuraSequential, NeuraSequentialTail},
         neura_sequential,
     };

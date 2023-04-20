@@ -1,8 +1,6 @@
 use nalgebra::DVector;
 use num::Float;
 
-use crate::algebra::NeuraVector;
-
 use super::NeuraLoss;
 
 #[derive(Clone, Copy, Debug, PartialEq)]

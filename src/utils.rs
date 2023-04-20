@@ -89,17 +89,12 @@ where
 }
 
 #[cfg(test)]
-pub(crate) fn uniform_vector<const LENGTH: usize>() -> NeuraVector<LENGTH, f64> {
+pub(crate) fn uniform_vector(length: usize) -> nalgebra::DVector<f64> {
+    use nalgebra::DVector;
     use rand::Rng;
 
-    let mut res: NeuraVector<LENGTH, f64> = NeuraVector::default();
     let mut rng = rand::thread_rng();
-
-    for i in 0..LENGTH {
-        res[i] = rng.gen();
-    }
-
-    res
+    DVector::from_fn(length, |_, _| -> f64 { rng.gen() })
 }
 
 pub fn one_hot<const N: usize>(value: usize) -> NeuraVector<N, f64> {

@@ -2,8 +2,7 @@ use crate::algebra::NeuraVectorSpace;
 
 pub mod dense;
 pub mod dropout;
-
-pub use dense::NeuraDenseLayer;
+pub mod softmax;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum NeuraShape {
@@ -120,5 +119,9 @@ macro_rules! neura_layer {
 
     ( "dropout", $probability:expr ) => {
         $crate::layer::dropout::NeuraDropoutLayer::new($probability, rand::thread_rng())
+    };
+
+    ( "softmax" ) => {
+        $crate::layer::softmax::NeuraSoftmaxLayer::new()
     };
 }

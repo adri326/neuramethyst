@@ -247,7 +247,7 @@ mod test {
 
     use crate::{
         derivable::{activation::Relu, regularize::NeuraL0},
-        layer::{NeuraDenseLayer, NeuraLayer, NeuraShape},
+        layer::{dense::NeuraDenseLayer, NeuraLayer, NeuraShape},
         neura_layer,
     };
 

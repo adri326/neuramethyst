@@ -13,10 +13,12 @@ use rand::Rng;
 
 fn main() {
     let mut network = neura_sequential![
-        neura_layer!("dense", 8),
+        neura_layer!("dense", 8).regularization(NeuraL1(0.001)),
         neura_layer!("dropout", 0.25),
-        neura_layer!("dense", 2).activation(Linear),
-        // neura_layer!("softmax"),
+        neura_layer!("dense", 2)
+            .activation(Linear)
+            .regularization(NeuraL1(0.001)),
+        neura_layer!("softmax"),
     ]
     .construct(NeuraShape::Vector(2))
     .unwrap();
