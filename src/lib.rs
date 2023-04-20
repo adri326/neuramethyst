@@ -5,7 +5,7 @@ pub mod algebra;
 pub mod derivable;
 pub mod layer;
 pub mod network;
-pub mod optimize;
+pub mod gradient_solver;
 pub mod train;
 
 mod utils;
@@ -22,6 +22,6 @@ pub mod prelude {
     pub use crate::network::sequential::{
         NeuraSequential, NeuraSequentialConstruct, NeuraSequentialTail,
     };
-    pub use crate::optimize::NeuraBackprop;
+    pub use crate::gradient_solver::NeuraBackprop;
     pub use crate::train::NeuraBatchedTrainer;
 }

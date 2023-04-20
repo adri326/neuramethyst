@@ -1,44 +1,9 @@
 use num::ToPrimitive;
 
-use crate::{
-    derivable::NeuraLoss,
-    layer::NeuraTrainableLayer,
-    network::{NeuraTrainableNetwork, NeuraTrainableNetworkBase},
-};
+use crate::{network::NeuraTrainableNetworkBase, derivable::NeuraLoss, layer::NeuraTrainableLayer};
 
-pub trait NeuraOptimizerBase {
-    type Output<NetworkInput, NetworkGradient>;
-}
+use super::*;
 
-pub trait NeuraOptimizerFinal<LayerOutput>: NeuraOptimizerBase {
-    fn eval_final(&self, output: LayerOutput) -> Self::Output<LayerOutput, ()>;
-}
-
-pub trait NeuraOptimizerTransient<LayerOutput>: NeuraOptimizerBase {
-    fn eval_layer<
-        Input,
-        NetworkGradient,
-        RecGradient,
-        Layer: NeuraTrainableLayer<Input, Output = LayerOutput>,
-    >(
-        &self,
-        layer: &Layer,
-        input: &Input,
-        rec_opt_output: Self::Output<LayerOutput, RecGradient>,
-        combine_gradients: impl Fn(Layer::Gradient, RecGradient) -> NetworkGradient,
-    ) -> Self::Output<Input, NetworkGradient>;
-}
-
-pub trait NeuraOptimizer<Input, Target, Trainable: NeuraTrainableNetworkBase<Input>> {
-    fn get_gradient(
-        &self,
-        trainable: &Trainable,
-        input: &Input,
-        target: &Target,
-    ) -> Trainable::Gradient;
-
-    fn score(&self, trainable: &Trainable, input: &Input, target: &Target) -> f64;
-}
 
 pub struct NeuraBackprop<Loss> {
     loss: Loss,
@@ -55,7 +20,7 @@ impl<
         Target,
         Trainable: NeuraTrainableNetworkBase<Input>,
         Loss: NeuraLoss<Trainable::Output, Target = Target> + Clone,
-    > NeuraOptimizer<Input, Target, Trainable> for NeuraBackprop<Loss>
+    > NeuraGradientSolver<Input, Target, Trainable> for NeuraBackprop<Loss>
 where
     <Loss as NeuraLoss<Trainable::Output>>::Output: ToPrimitive,
     Trainable: for<'a> NeuraTrainableNetwork<Input, (&'a NeuraBackprop<Loss>, &'a Target)>,
@@ -77,19 +42,19 @@ where
     }
 }
 
-impl<Loss, Target> NeuraOptimizerBase for (&NeuraBackprop<Loss>, &Target) {
+impl<Loss, Target> NeuraGradientSolverBase for (&NeuraBackprop<Loss>, &Target) {
     type Output<NetworkInput, NetworkGradient> = (NetworkInput, NetworkGradient); // epsilon, gradient
 }
 
 impl<LayerOutput, Target, Loss: NeuraLoss<LayerOutput, Target = Target>>
-    NeuraOptimizerFinal<LayerOutput> for (&NeuraBackprop<Loss>, &Target)
+    NeuraGradientSolverFinal<LayerOutput> for (&NeuraBackprop<Loss>, &Target)
 {
     fn eval_final(&self, output: LayerOutput) -> Self::Output<LayerOutput, ()> {
         (self.0.loss.nabla(self.1, &output), ())
     }
 }
 
-impl<LayerOutput, Target, Loss> NeuraOptimizerTransient<LayerOutput>
+impl<LayerOutput, Target, Loss> NeuraGradientSolverTransient<LayerOutput>
     for (&NeuraBackprop<Loss>, &Target)
 {
     fn eval_layer<

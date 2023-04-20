@@ -1,4 +1,4 @@
-use crate::{algebra::NeuraVectorSpace, layer::NeuraLayer, optimize::NeuraOptimizerBase};
+use crate::{algebra::NeuraVectorSpace, layer::NeuraLayer, gradient_solver::NeuraGradientSolverBase};
 
 pub mod sequential;
 
@@ -19,7 +19,7 @@ pub trait NeuraTrainableNetworkBase<Input>: NeuraLayer<Input> {
 
 pub trait NeuraTrainableNetwork<Input, Optimizer>: NeuraTrainableNetworkBase<Input>
 where
-    Optimizer: NeuraOptimizerBase,
+    Optimizer: NeuraGradientSolverBase,
 {
     fn traverse(
         &self,

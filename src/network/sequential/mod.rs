@@ -1,7 +1,7 @@
 use super::{NeuraTrainableNetwork, NeuraTrainableNetworkBase};
 use crate::{
     layer::{NeuraLayer, NeuraPartialLayer, NeuraShape, NeuraTrainableLayer},
-    optimize::{NeuraOptimizerFinal, NeuraOptimizerTransient},
+    gradient_solver::{NeuraGradientSolverFinal, NeuraGradientSolverTransient},
 };
 
 mod construct;
@@ -189,7 +189,7 @@ impl<Input: Clone> NeuraTrainableNetworkBase<Input> for () {
 impl<
         Input,
         Layer: NeuraTrainableLayer<Input>,
-        Optimizer: NeuraOptimizerTransient<Layer::Output>,
+        Optimizer: NeuraGradientSolverTransient<Layer::Output>,
         ChildNetwork: NeuraTrainableNetworkBase<Layer::Output>,
     > NeuraTrainableNetwork<Input, Optimizer> for NeuraSequential<Layer, ChildNetwork>
 where
@@ -212,7 +212,7 @@ where
     }
 }
 
-impl<Input: Clone, Optimizer: NeuraOptimizerFinal<Input>> NeuraTrainableNetwork<Input, Optimizer>
+impl<Input: Clone, Optimizer: NeuraGradientSolverFinal<Input>> NeuraTrainableNetwork<Input, Optimizer>
     for ()
 {
     fn traverse(

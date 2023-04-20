@@ -1,5 +1,5 @@
 use crate::{
-    algebra::NeuraVectorSpace, network::NeuraTrainableNetworkBase, optimize::NeuraOptimizer,
+    algebra::NeuraVectorSpace, network::NeuraTrainableNetworkBase, gradient_solver::NeuraGradientSolver,
 };
 
 #[non_exhaustive]
@@ -73,7 +73,7 @@ impl NeuraBatchedTrainer {
         Input: Clone,
         Target: Clone,
         Network: NeuraTrainableNetworkBase<Input>,
-        GradientSolver: NeuraOptimizer<Input, Target, Network>,
+        GradientSolver: NeuraGradientSolver<Input, Target, Network>,
         Inputs: IntoIterator<Item = (Input, Target)>,
     >(
         &self,
@@ -143,7 +143,7 @@ mod test {
         layer::{dense::NeuraDenseLayer, NeuraLayer},
         network::sequential::{NeuraSequential, NeuraSequentialTail},
         neura_sequential,
-        optimize::NeuraBackprop,
+        gradient_solver::NeuraBackprop,
     };
 
     #[test]
