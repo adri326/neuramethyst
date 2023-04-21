@@ -11,7 +11,7 @@ pub mod train;
 mod utils;
 
 // TODO: move to a different file
-pub use utils::{argmax, cycle_shuffling, one_hot};
+pub use utils::{argmax, cycle_shuffling, one_hot, plot_losses};
 
 pub mod prelude {
     // Macros

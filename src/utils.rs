@@ -128,3 +128,24 @@ macro_rules! assert_approx {
         }
     };
 }
+
+// TODO: put this behind a feature
+pub fn plot_losses(losses: Vec<(f64, f64)>, width: u32, height: u32) {
+    use textplots::{Chart, ColorPlot, Plot, Shape};
+
+    let train_losses: Vec<_> = losses
+        .iter()
+        .enumerate()
+        .map(|(x, y)| (x as f32, y.0 as f32))
+        .collect();
+    let val_losses: Vec<_> = losses
+        .iter()
+        .enumerate()
+        .map(|(x, y)| (x as f32, y.1 as f32))
+        .collect();
+
+    Chart::new(width, height, 0.0, losses.len() as f32)
+        .lineplot(&Shape::Lines(&train_losses))
+        .linecolorplot(&Shape::Lines(&val_losses), (255, 0, 255).into())
+        .nice();
+}

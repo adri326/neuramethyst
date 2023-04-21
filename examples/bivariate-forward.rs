@@ -5,7 +5,7 @@ use nalgebra::{dvector, DVector};
 use neuramethyst::derivable::activation::{LeakyRelu, Linear, Relu, Tanh};
 use neuramethyst::derivable::regularize::NeuraL1;
 use neuramethyst::gradient_solver::NeuraForwardForward;
-use neuramethyst::prelude::*;
+use neuramethyst::{plot_losses, prelude::*};
 
 use rand::Rng;
 
@@ -88,11 +88,15 @@ fn main() {
         trainer.batch_size = 10;
         trainer.log_iterations = 20;
 
-        trainer.train(
-            &NeuraForwardForward::new(Tanh, threshold as f64),
-            &mut network,
-            inputs.clone(),
-            &test_inputs,
+        plot_losses(
+            trainer.train(
+                &NeuraForwardForward::new(Tanh, threshold as f64),
+                &mut network,
+                inputs.clone(),
+                &test_inputs,
+            ),
+            128,
+            48,
         );
 
         // println!("{}", String::from("\n").repeat(64));

@@ -7,7 +7,7 @@ use nalgebra::{dvector, DVector};
 use neuramethyst::derivable::activation::{LeakyRelu, Linear, Relu, Tanh};
 use neuramethyst::derivable::loss::CrossEntropy;
 use neuramethyst::derivable::regularize::NeuraL1;
-use neuramethyst::prelude::*;
+use neuramethyst::{plot_losses, prelude::*};
 
 use rand::Rng;
 
@@ -77,11 +77,15 @@ fn main() {
         trainer.batch_size = 10;
         trainer.log_iterations = 20;
 
-        trainer.train(
-            &NeuraBackprop::new(CrossEntropy),
-            &mut network,
-            inputs.clone(),
-            &test_inputs,
+        plot_losses(
+            trainer.train(
+                &NeuraBackprop::new(CrossEntropy),
+                &mut network,
+                inputs.clone(),
+                &test_inputs,
+            ),
+            128,
+            48,
         );
 
         // println!("{}", String::from("\n").repeat(64));
