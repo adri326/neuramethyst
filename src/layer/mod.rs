@@ -2,6 +2,7 @@ use crate::algebra::NeuraVectorSpace;
 
 pub mod dense;
 pub mod dropout;
+pub mod normalize;
 pub mod softmax;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -123,5 +124,9 @@ macro_rules! neura_layer {
 
     ( "softmax" ) => {
         $crate::layer::softmax::NeuraSoftmaxLayer::new()
+    };
+
+    ( "normalize" ) => {
+        $crate::layer::normalize::NeuraNormalizeLayer::new()
     };
 }

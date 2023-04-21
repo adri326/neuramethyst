@@ -1,6 +1,9 @@
 mod backprop;
 pub use backprop::NeuraBackprop;
 
+mod forward_forward;
+pub use forward_forward::NeuraForwardForward;
+
 use crate::{
     layer::NeuraTrainableLayer,
     network::{NeuraTrainableNetwork, NeuraTrainableNetworkBase},

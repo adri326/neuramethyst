@@ -3,9 +3,9 @@
 
 pub mod algebra;
 pub mod derivable;
+pub mod gradient_solver;
 pub mod layer;
 pub mod network;
-pub mod gradient_solver;
 pub mod train;
 
 mod utils;
@@ -18,10 +18,10 @@ pub mod prelude {
     pub use crate::{neura_layer, neura_sequential};
 
     // Structs and traits
+    pub use crate::gradient_solver::NeuraBackprop;
     pub use crate::layer::*;
     pub use crate::network::sequential::{
         NeuraSequential, NeuraSequentialConstruct, NeuraSequentialTail,
     };
-    pub use crate::gradient_solver::NeuraBackprop;
     pub use crate::train::NeuraBatchedTrainer;
 }

@@ -1,9 +1,8 @@
 use num::ToPrimitive;
 
-use crate::{network::NeuraTrainableNetworkBase, derivable::NeuraLoss, layer::NeuraTrainableLayer};
+use crate::{derivable::NeuraLoss, layer::NeuraTrainableLayer, network::NeuraTrainableNetworkBase};
 
 use super::*;
-
 
 pub struct NeuraBackprop<Loss> {
     loss: Loss,

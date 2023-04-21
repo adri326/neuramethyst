@@ -38,7 +38,7 @@ fn main() {
     trainer.learning_momentum = 0.01;
 
     trainer.train(
-        NeuraBackprop::new(Euclidean),
+        &NeuraBackprop::new(Euclidean),
         &mut network,
         cycle_shuffling(inputs.iter().cloned(), rand::thread_rng()),
         &inputs,

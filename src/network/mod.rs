@@ -1,4 +1,6 @@
-use crate::{algebra::NeuraVectorSpace, layer::NeuraLayer, gradient_solver::NeuraGradientSolverBase};
+use crate::{
+    algebra::NeuraVectorSpace, gradient_solver::NeuraGradientSolverBase, layer::NeuraLayer,
+};
 
 pub mod sequential;
 

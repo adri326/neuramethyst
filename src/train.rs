@@ -1,5 +1,6 @@
 use crate::{
-    algebra::NeuraVectorSpace, network::NeuraTrainableNetworkBase, gradient_solver::NeuraGradientSolver,
+    algebra::NeuraVectorSpace, gradient_solver::NeuraGradientSolver,
+    network::NeuraTrainableNetworkBase,
 };
 
 #[non_exhaustive]
@@ -77,7 +78,7 @@ impl NeuraBatchedTrainer {
         Inputs: IntoIterator<Item = (Input, Target)>,
     >(
         &self,
-        gradient_solver: GradientSolver,
+        gradient_solver: &GradientSolver,
         network: &mut Network,
         inputs: Inputs,
         test_inputs: &[(Input, Target)],
@@ -140,10 +141,10 @@ mod test {
     use crate::{
         assert_approx,
         derivable::{activation::Linear, loss::Euclidean, regularize::NeuraL0, NeuraLoss},
+        gradient_solver::NeuraBackprop,
         layer::{dense::NeuraDenseLayer, NeuraLayer},
         network::sequential::{NeuraSequential, NeuraSequentialTail},
         neura_sequential,
-        gradient_solver::NeuraBackprop,
     };
 
     #[test]
