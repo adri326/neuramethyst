@@ -74,3 +74,63 @@ impl<LayerOutput, Target, Loss> NeuraGradientSolverTransient<LayerOutput>
         (epsilon_out, combine_gradients(layer_gradient, rec_gradient))
     }
 }
+
+#[cfg(test)]
+mod test {
+    use approx::assert_relative_eq;
+
+    use super::*;
+    use crate::{prelude::*, derivable::{activation::Tanh, loss::Euclidean, NeuraDerivable}, utils::uniform_vector};
+
+    #[test]
+    fn test_backprop_epsilon_bias() {
+        // Checks that the epsilon term from backpropagation is well applied, by inspecting the bias terms
+        // of the neural network's gradient
+
+        for _ in 0..100 {
+            let network = neura_sequential![
+                neura_layer!("dense", 4, f64).activation(Tanh),
+                neura_layer!("dense", 2, f64).activation(Tanh)
+            ].construct(NeuraShape::Vector(4)).unwrap();
+
+            let optimizer = NeuraBackprop::new(Euclidean);
+            let input = uniform_vector(4);
+            let target = uniform_vector(2);
+
+            let layer1_intermediary = &network.layer.weights * &input;
+            let layer2_intermediary = &network.child_network.layer.weights * layer1_intermediary.map(|x| x.tanh());
+
+            assert_relative_eq!(layer1_intermediary.map(|x| x.tanh()), network.clone().trim_tail().eval(&input));
+
+            let output = network.eval(&input);
+
+            let gradient = optimizer.get_gradient(&network, &input, &target);
+
+            let mut delta2_expected = Euclidean.nabla(&target, &output);
+            for i in 0..2 {
+                delta2_expected[i] *= Tanh.derivate(layer2_intermediary[i]);
+            }
+            let delta2_actual = gradient.1.0.1;
+
+            assert_relative_eq!(delta2_actual.as_slice(), delta2_expected.as_slice());
+
+            let gradient2_expected = &delta2_expected * layer1_intermediary.map(|x| x.tanh()).transpose();
+            let gradient2_actual = gradient.1.0.0;
+
+            assert_relative_eq!(gradient2_actual.as_slice(), gradient2_expected.as_slice());
+
+            let mut delta1_expected = network.child_network.layer.weights.transpose() * delta2_expected;
+            for i in 0..4 {
+                delta1_expected[i] *= Tanh.derivate(layer1_intermediary[i]);
+            }
+            let delta1_actual = gradient.0.1;
+
+            assert_relative_eq!(delta1_actual.as_slice(), delta1_expected.as_slice());
+
+            let gradient1_expected = &delta1_expected * input.transpose();
+            let gradient1_actual = gradient.0.0;
+
+            assert_relative_eq!(gradient1_actual.as_slice(), gradient1_expected.as_slice());
+        }
+    }
+}
