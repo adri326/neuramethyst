@@ -1,7 +1,7 @@
 use nalgebra::{DVector, Scalar};
 use num::{traits::NumAssignOps, Float, ToPrimitive};
 
-use crate::{derivable::NeuraDerivable, prelude::NeuraTrainableLayerSelf};
+use crate::{derivable::NeuraDerivable, layer::NeuraTrainableLayerSelf};
 
 use super::*;
 

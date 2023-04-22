@@ -1,5 +1,6 @@
 #![feature(generic_arg_infer)]
 // #![feature(generic_const_exprs)]
+#![feature(associated_type_defaults)]
 
 pub mod algebra;
 pub mod derivable;
@@ -13,15 +14,21 @@ mod utils;
 // TODO: move to a different file
 pub use utils::{argmax, cycle_shuffling, one_hot, plot_losses};
 
+/// Common traits and structs that are useful to use this library.
+/// All of these traits are prefixed with the word "neura" in some way,
+/// so there should not be any conflicts when doing a wildcard import of `prelude`.
 pub mod prelude {
     // Macros
     pub use crate::{neura_layer, neura_sequential};
 
     // Structs and traits
     pub use crate::gradient_solver::NeuraBackprop;
-    pub use crate::layer::*;
+    pub use crate::layer::{
+        NeuraLayer, NeuraPartialLayer, NeuraShape, NeuraTrainableLayerBackprop,
+        NeuraTrainableLayerBase, NeuraTrainableLayerSelf,
+    };
     pub use crate::network::sequential::{
-        NeuraSequential, NeuraSequentialConstruct, NeuraSequentialTail,
+        NeuraSequential, NeuraSequentialConstruct, NeuraSequentialLock, NeuraSequentialTail,
     };
     pub use crate::train::NeuraBatchedTrainer;
 }

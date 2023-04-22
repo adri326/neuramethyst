@@ -1,7 +1,10 @@
 use crate::algebra::NeuraVectorSpace;
 
+use self::lock::NeuraLockLayer;
+
 pub mod dense;
 pub mod dropout;
+pub mod lock;
 pub mod normalize;
 pub mod softmax;
 
@@ -27,6 +30,13 @@ pub trait NeuraLayer<Input> {
     type Output;
 
     fn eval(&self, input: &Input) -> Self::Output;
+
+    fn lock_layer(self) -> NeuraLockLayer<Self>
+    where
+        Self: Sized,
+    {
+        NeuraLockLayer::new(self)
+    }
 }
 
 impl<Input: Clone> NeuraLayer<Input> for () {

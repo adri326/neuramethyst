@@ -1,15 +1,18 @@
 use super::{NeuraTrainableNetwork, NeuraTrainableNetworkBase};
 use crate::{
     gradient_solver::{NeuraGradientSolverFinal, NeuraGradientSolverTransient},
-    layer::{NeuraLayer, NeuraPartialLayer, NeuraShape, NeuraTrainableLayerBase},
-    prelude::NeuraTrainableLayerSelf,
+    layer::{
+        NeuraLayer, NeuraPartialLayer, NeuraShape, NeuraTrainableLayerBase, NeuraTrainableLayerSelf,
+    },
 };
 
 mod construct;
 mod layer_impl;
+mod lock;
 mod tail;
 
 pub use construct::*;
+pub use lock::*;
 pub use tail::*;
 
 /// Chains a layer with the rest of a neural network, in a fashion similar to a cartesian product,
@@ -193,6 +196,18 @@ macro_rules! neura_sequential {
         ()
     };
 
+    [ .. $network:expr $(,)? ] => {
+        $network
+    };
+
+    [ .. $network:expr, $layer:expr $(, $($rest:expr),+ )? $(,)? ] => {
+        neura_sequential![ .. (($network).push_tail($layer)), $( $( $rest ),+ )? ]
+    };
+
+    // [ $( $lhs:expr, )* $layer:expr, .. $network:expr $(, $($rhs:expr),* )?] => {
+    //     neura_sequential![ $($lhs,)* .. (($network).push_front($layer)) $(, $($rhs),* )? ]
+    // };
+
     [ $layer:expr $(,)? ] => {
         $crate::network::sequential::NeuraSequential::from($layer)
     };
@@ -200,6 +215,7 @@ macro_rules! neura_sequential {
     [ $first:expr, $($rest:expr),+ $(,)? ] => {
         $crate::network::sequential::NeuraSequential::new($first, neura_sequential![$($rest),+])
     };
+
 }
 
 #[cfg(test)]

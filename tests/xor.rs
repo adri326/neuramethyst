@@ -8,7 +8,8 @@ use neuramethyst::{
         loss::Euclidean,
         regularize::NeuraL0,
     },
-    prelude::{dense::NeuraDenseLayer, *},
+    layer::dense::NeuraDenseLayer,
+    prelude::*,
 };
 
 fn load_test_data() -> Vec<(DMatrix<f64>, DVector<f64>, DMatrix<f64>, DVector<f64>)> {

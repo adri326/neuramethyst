@@ -106,3 +106,45 @@ impl_derivable!(Tanh, x, x.tanh(), {
 pub struct Linear;
 
 impl_derivable!(Linear, x, x, 1.0);
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Logistic;
+
+impl_derivable!(Logistic, x, {
+    if x < 0.0 {
+        let x2 = x.exp();
+        x2 / (1.0 + x2)
+    } else {
+        1.0 / (1.0 + (-x).exp())
+    }
+}, {
+    if x.abs() > 50.0 {
+        0.0
+    } else {
+        let y = Logistic.eval(x);
+        y * (1.0 - y)
+    }
+}; 3.2, 0.0); // 3.2 ~= pi^2 / 3
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Swish<F>(pub F);
+
+impl<F: NeuraDerivable<f32>> NeuraDerivable<f32> for Swish<F> {
+    fn eval(&self, input: f32) -> f32 {
+        input * self.0.eval(input)
+    }
+
+    fn derivate(&self, at: f32) -> f32 {
+        let result = self.0.eval(at);
+        let swish_result = at * result;
+        swish_result + result * (1.0 - swish_result)
+    }
+
+    fn bias_hint(&self) -> f64 {
+        self.0.bias_hint()
+    }
+
+    fn variance_hint(&self) -> f64 {
+        self.0.variance_hint()
+    }
+}

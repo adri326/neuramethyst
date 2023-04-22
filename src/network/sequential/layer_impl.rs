@@ -1,5 +1,5 @@
 use super::*;
-use crate::prelude::NeuraTrainableLayerBackprop;
+use crate::layer::NeuraTrainableLayerBackprop;
 
 impl<Input, Layer: NeuraLayer<Input>, ChildNetwork: NeuraLayer<Layer::Output>> NeuraLayer<Input>
     for NeuraSequential<Layer, ChildNetwork>
