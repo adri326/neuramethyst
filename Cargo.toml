@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 boxed-array = "0.1.0"
-nalgebra = { version = "^0.32", features = ["std", "macros", "rand"] }
+nalgebra = { version = "^0.32", features = ["std", "macros", "rand", "serde-serialize"] }
 ndarray = "^0.15"
 num = "^0.4"
 # num-traits = "0.2.15"
@@ -19,3 +19,5 @@ textplots = "0.8.0"
 image = "0.24.6"
 viuer = "0.6.2"
 rust-mnist = "0.2.0"
+serde_json = "1.0.96"
+approx = "0.5.1"

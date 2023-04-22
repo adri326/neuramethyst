@@ -10,8 +10,8 @@ use super::*;
 
 #[derive(Clone, Debug)]
 pub struct NeuraDenseLayer<F: Float, Act: NeuraDerivable<F>, Reg: NeuraDerivable<F>> {
-    weights: DMatrix<F>,
-    bias: DVector<F>,
+    pub weights: DMatrix<F>,
+    pub bias: DVector<F>,
     activation: Act,
     regularization: Reg,
 }
@@ -187,7 +187,7 @@ impl<
         input: &DVector<F>,
         epsilon: Self::Output,
     ) -> (DVector<F>, Self::Gradient) {
-        let evaluated = &self.weights * input;
+        let evaluated = &self.weights * input + &self.bias;
         // Compute delta (the input gradient of the neuron) from epsilon (the output gradient of the neuron),
         // with `self.activation'(input) ° epsilon = delta`
         let mut delta = epsilon.clone();
