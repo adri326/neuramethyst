@@ -161,9 +161,9 @@ impl<
     fn eval(&self, input: &DVector<F>) -> Self::Output {
         assert_eq!(input.shape().0, self.weights.shape().1);
 
-        let res = &self.weights * input + &self.bias;
+        let evaluated = &self.weights * input + &self.bias;
 
-        res.map(|x| self.activation.eval(x))
+        evaluated.map(|x| self.activation.eval(x))
     }
 }
 
@@ -171,9 +171,17 @@ impl<
         F: Float + std::fmt::Debug + 'static + std::ops::AddAssign + std::ops::MulAssign,
         Act: NeuraDerivable<F>,
         Reg: NeuraDerivable<F>,
-    > NeuraTrainableLayer<DVector<F>> for NeuraDenseLayer<F, Act, Reg>
+    > NeuraTrainableLayerBase<DVector<F>> for NeuraDenseLayer<F, Act, Reg>
 {
     type Gradient = (DMatrix<F>, DVector<F>);
+    type IntermediaryRepr = DVector<F>; // pre-activation values
+
+    fn eval_training(&self, input: &DVector<F>) -> (Self::Output, Self::IntermediaryRepr) {
+        let evaluated = &self.weights * input + &self.bias;
+        let output = evaluated.map(|x| self.activation.eval(x));
+
+        (output, evaluated)
+    }
 
     fn default_gradient(&self) -> Self::Gradient {
         (
@@ -182,12 +190,62 @@ impl<
         )
     }
 
+    fn apply_gradient(&mut self, gradient: &Self::Gradient) {
+        self.weights += &gradient.0;
+        self.bias += &gradient.1;
+    }
+}
+
+impl<
+        F: Float + std::fmt::Debug + 'static + std::ops::AddAssign + std::ops::MulAssign,
+        Act: NeuraDerivable<F>,
+        Reg: NeuraDerivable<F>,
+    > NeuraTrainableLayerSelf<DVector<F>> for NeuraDenseLayer<F, Act, Reg>
+{
+    fn regularize_layer(&self) -> Self::Gradient {
+        (
+            self.weights.map(|x| self.regularization.derivate(x)),
+            DVector::zeros(self.bias.shape().0),
+        )
+    }
+
+    fn get_gradient(
+        &self,
+        input: &DVector<F>,
+        evaluated: &Self::IntermediaryRepr,
+        epsilon: &Self::Output,
+    ) -> Self::Gradient {
+        // Compute delta (the input gradient of the neuron) from epsilon (the output gradient of the neuron),
+        // with `self.activation'(input) ° epsilon = delta`
+        let mut delta = epsilon.clone();
+
+        for i in 0..delta.len() {
+            // TODO: remove `- self.bias[i]`
+            delta[i] *= self.activation.derivate(evaluated[i]);
+        }
+
+        let weights_gradient = &delta * input.transpose();
+
+        // According to https://datascience.stackexchange.com/questions/20139/gradients-for-bias-terms-in-backpropagation
+        // The gradient of the bias is equal to the delta term of the backpropagation algorithm
+        let bias_gradient = delta;
+
+        (weights_gradient, bias_gradient)
+    }
+}
+
+impl<
+        F: Float + std::fmt::Debug + 'static + std::ops::AddAssign + std::ops::MulAssign,
+        Act: NeuraDerivable<F>,
+        Reg: NeuraDerivable<F>,
+    > NeuraTrainableLayerBackprop<DVector<F>> for NeuraDenseLayer<F, Act, Reg>
+{
     fn backprop_layer(
         &self,
         input: &DVector<F>,
-        epsilon: Self::Output,
-    ) -> (DVector<F>, Self::Gradient) {
-        let evaluated = &self.weights * input + &self.bias;
+        evaluated: &Self::IntermediaryRepr,
+        epsilon: &Self::Output,
+    ) -> DVector<F> {
         // Compute delta (the input gradient of the neuron) from epsilon (the output gradient of the neuron),
         // with `self.activation'(input) ° epsilon = delta`
         let mut delta = epsilon.clone();
@@ -196,27 +254,6 @@ impl<
             delta[i] *= self.activation.derivate(evaluated[i]);
         }
 
-        // Compute the weight gradient
-        let weights_gradient = &delta * input.transpose();
-
-        let new_epsilon = self.weights.tr_mul(&delta);
-
-        // According to https://datascience.stackexchange.com/questions/20139/gradients-for-bias-terms-in-backpropagation
-        // The gradient of the bias is equal to the delta term of the backpropagation algorithm
-        let bias_gradient = delta;
-
-        (new_epsilon, (weights_gradient, bias_gradient))
-    }
-
-    fn regularize_layer(&self) -> Self::Gradient {
-        (
-            self.weights.map(|x| self.regularization.derivate(x)),
-            DVector::zeros(self.bias.shape().0),
-        )
-    }
-
-    fn apply_gradient(&mut self, gradient: &Self::Gradient) {
-        self.weights += &gradient.0;
-        self.bias += &gradient.1;
+        self.weights.tr_mul(&delta)
     }
 }

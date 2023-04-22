@@ -1,10 +1,12 @@
 use super::{NeuraTrainableNetwork, NeuraTrainableNetworkBase};
 use crate::{
     gradient_solver::{NeuraGradientSolverFinal, NeuraGradientSolverTransient},
-    layer::{NeuraLayer, NeuraPartialLayer, NeuraShape, NeuraTrainableLayer},
+    layer::{NeuraLayer, NeuraPartialLayer, NeuraShape, NeuraTrainableLayerBase},
+    prelude::NeuraTrainableLayerSelf,
 };
 
 mod construct;
+mod layer_impl;
 mod tail;
 
 pub use construct::*;
@@ -24,7 +26,7 @@ pub use tail::*;
 /// ## Notes on implemented traits
 ///
 /// The different implementations for `NeuraTrainableNetwork`,
-/// `NeuraLayer` and `NeuraTrainableLayer` each require that `ChildNetwork` implements those respective traits,
+/// `NeuraLayer` and `NeuraTrainableLayerBase` each require that `ChildNetwork` implements those respective traits,
 /// and that the output type of `Layer` matches the input type of `ChildNetwork`.
 ///
 /// If a method, like `eval`, is reported as missing,
@@ -74,61 +76,9 @@ impl<Layer, ChildNetwork> NeuraSequential<Layer, ChildNetwork> {
     }
 }
 
-impl<Input, Layer: NeuraLayer<Input>, ChildNetwork: NeuraLayer<Layer::Output>> NeuraLayer<Input>
-    for NeuraSequential<Layer, ChildNetwork>
-{
-    type Output = ChildNetwork::Output;
-
-    fn eval(&self, input: &Input) -> Self::Output {
-        self.child_network.eval(&self.layer.eval(input))
-    }
-}
-
 impl<
         Input,
-        Layer: NeuraTrainableLayer<Input>,
-        ChildNetwork: NeuraTrainableLayer<Layer::Output>,
-    > NeuraTrainableLayer<Input> for NeuraSequential<Layer, ChildNetwork>
-{
-    type Gradient = (Layer::Gradient, Box<ChildNetwork::Gradient>);
-
-    fn default_gradient(&self) -> Self::Gradient {
-        (
-            self.layer.default_gradient(),
-            Box::new(self.child_network.default_gradient()),
-        )
-    }
-
-    fn backprop_layer(
-        &self,
-        input: &Input,
-        incoming_epsilon: Self::Output,
-    ) -> (Input, Self::Gradient) {
-        let output = self.layer.eval(input);
-        let (transient_epsilon, child_gradient) =
-            self.child_network.backprop_layer(&output, incoming_epsilon);
-        let (outgoing_epsilon, layer_gradient) =
-            self.layer.backprop_layer(input, transient_epsilon);
-
-        (outgoing_epsilon, (layer_gradient, Box::new(child_gradient)))
-    }
-
-    fn regularize_layer(&self) -> Self::Gradient {
-        (
-            self.layer.regularize_layer(),
-            Box::new(self.child_network.regularize_layer()),
-        )
-    }
-
-    fn apply_gradient(&mut self, gradient: &Self::Gradient) {
-        self.layer.apply_gradient(&gradient.0);
-        self.child_network.apply_gradient(&gradient.1);
-    }
-}
-
-impl<
-        Input,
-        Layer: NeuraTrainableLayer<Input>,
+        Layer: NeuraTrainableLayerBase<Input> + NeuraTrainableLayerSelf<Input>,
         ChildNetwork: NeuraTrainableNetworkBase<Layer::Output>,
     > NeuraTrainableNetworkBase<Input> for NeuraSequential<Layer, ChildNetwork>
 {
@@ -188,8 +138,8 @@ impl<Input: Clone> NeuraTrainableNetworkBase<Input> for () {
 
 impl<
         Input,
-        Layer: NeuraTrainableLayer<Input>,
-        Optimizer: NeuraGradientSolverTransient<Layer::Output>,
+        Layer: NeuraTrainableLayerBase<Input> + NeuraTrainableLayerSelf<Input>,
+        Optimizer: NeuraGradientSolverTransient<Input, Layer>,
         ChildNetwork: NeuraTrainableNetworkBase<Layer::Output>,
     > NeuraTrainableNetwork<Input, Optimizer> for NeuraSequential<Layer, ChildNetwork>
 where
@@ -200,12 +150,14 @@ where
         input: &Input,
         optimizer: &Optimizer,
     ) -> Optimizer::Output<Input, Self::Gradient> {
-        let next_activation = self.layer.eval(input);
+        let (next_activation, intermediary) = self.layer.eval_training(input);
         let child_result = self.child_network.traverse(&next_activation, optimizer);
 
         optimizer.eval_layer(
             &self.layer,
             input,
+            &next_activation,
+            &intermediary,
             child_result,
             |layer_gradient, child_gradient| (layer_gradient, Box::new(child_gradient)),
         )

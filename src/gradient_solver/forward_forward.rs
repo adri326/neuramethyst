@@ -1,7 +1,7 @@
 use nalgebra::{DVector, Scalar};
 use num::{traits::NumAssignOps, Float, ToPrimitive};
 
-use crate::derivable::NeuraDerivable;
+use crate::{derivable::NeuraDerivable, prelude::NeuraTrainableLayerSelf};
 
 use super::*;
 
@@ -90,22 +90,23 @@ impl<Act, LayerOutput> NeuraGradientSolverFinal<LayerOutput> for NeuraForwardPai
     }
 }
 
-impl<F: Float + Scalar + NumAssignOps, Act: NeuraDerivable<F>>
-    NeuraGradientSolverTransient<DVector<F>> for NeuraForwardPair<Act>
-{
-    fn eval_layer<
+impl<
+        F: Float + Scalar + NumAssignOps,
+        Act: NeuraDerivable<F>,
         Input,
-        NetworkGradient,
-        RecGradient,
-        Layer: NeuraTrainableLayer<Input, Output = DVector<F>>,
-    >(
+        Layer: NeuraTrainableLayerSelf<Input, Output = DVector<F>>,
+    > NeuraGradientSolverTransient<Input, Layer> for NeuraForwardPair<Act>
+{
+    fn eval_layer<NetworkGradient, RecGradient>(
         &self,
         layer: &Layer,
         input: &Input,
+        output: &Layer::Output,
+        intermediary: &Layer::IntermediaryRepr,
         rec_gradient: RecGradient,
         combine_gradients: impl Fn(Layer::Gradient, RecGradient) -> NetworkGradient,
     ) -> Self::Output<Input, NetworkGradient> {
-        let output = layer.eval(input);
+        // let output = layer.eval(input);
         let goodness = output
             .iter()
             .copied()
@@ -129,7 +130,7 @@ impl<F: Float + Scalar + NumAssignOps, Act: NeuraDerivable<F>>
         }
 
         // TODO: split backprop_layer into eval_training, get_gradient and get_backprop
-        let (_, layer_gradient) = layer.backprop_layer(input, goodness_derivative);
+        let layer_gradient = layer.get_gradient(input, intermediary, &goodness_derivative);
 
         combine_gradients(layer_gradient, rec_gradient)
     }

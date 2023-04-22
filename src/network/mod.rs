@@ -4,6 +4,7 @@ use crate::{
 
 pub mod sequential;
 
+// TODO: extract regularize from this, so that we can drop the trait constraints on NeuraSequential's impl
 pub trait NeuraTrainableNetworkBase<Input>: NeuraLayer<Input> {
     type Gradient: NeuraVectorSpace;
     type LayerOutput;

@@ -1,4 +1,4 @@
-use nalgebra::{DVector, Scalar};
+use nalgebra::{DMatrix, DVector, Scalar};
 use num::{traits::NumAssignOps, Float};
 
 use super::*;
@@ -54,14 +54,19 @@ impl<F: Float + Scalar> NeuraLayer<DVector<F>> for NeuraNormalizeLayer {
     }
 }
 
-impl<F: Float + Scalar + NumAssignOps> NeuraTrainableLayer<DVector<F>> for NeuraNormalizeLayer {
+impl<F: Float + Scalar + NumAssignOps> NeuraTrainableLayerBase<DVector<F>> for NeuraNormalizeLayer {
     type Gradient = ();
+    type IntermediaryRepr = (DMatrix<F>, F); // Partial jacobian matrix (without the kroenecker term) and stddev
 
-    fn backprop_layer(
-        &self,
-        input: &DVector<F>,
-        epsilon: Self::Output,
-    ) -> (DVector<F>, Self::Gradient) {
+    fn default_gradient(&self) -> Self::Gradient {
+        ()
+    }
+
+    fn apply_gradient(&mut self, _gradient: &Self::Gradient) {
+        // Noop
+    }
+
+    fn eval_training(&self, input: &DVector<F>) -> (Self::Output, Self::IntermediaryRepr) {
         let (mean, variance, len) = mean_variance(input);
         let stddev = F::sqrt(variance);
         let input_centered = input.clone().map(|x| x - mean);
@@ -73,26 +78,42 @@ impl<F: Float + Scalar + NumAssignOps> NeuraTrainableLayer<DVector<F>> for Neura
             *value += F::one() / (stddev * len);
         }
 
-        let mut epsilon_out = jacobian_partial * &epsilon;
-
-        // Apply the δ_{ik}/σ term
-        for i in 0..epsilon_out.len() {
-            epsilon_out[i] += epsilon[i] / stddev;
-        }
-
-        (epsilon_out, ())
+        (input_centered / stddev, (jacobian_partial, stddev))
     }
+}
 
-    fn default_gradient(&self) -> Self::Gradient {
-        ()
-    }
-
+impl<F: Float + Scalar + NumAssignOps> NeuraTrainableLayerSelf<DVector<F>> for NeuraNormalizeLayer {
     fn regularize_layer(&self) -> Self::Gradient {
         ()
     }
 
-    fn apply_gradient(&mut self, _gradient: &Self::Gradient) {
-        // Noop
+    fn get_gradient(
+        &self,
+        input: &DVector<F>,
+        intermediary: &Self::IntermediaryRepr,
+        epsilon: &Self::Output,
+    ) -> Self::Gradient {
+        ()
+    }
+}
+
+impl<F: Float + Scalar + NumAssignOps> NeuraTrainableLayerBackprop<DVector<F>>
+    for NeuraNormalizeLayer
+{
+    fn backprop_layer(
+        &self,
+        input: &DVector<F>,
+        (jacobian_partial, stddev): &Self::IntermediaryRepr,
+        epsilon: &Self::Output,
+    ) -> DVector<F> {
+        let mut epsilon_out = jacobian_partial * epsilon;
+
+        // Apply the δ_{ik}/σ term
+        for i in 0..epsilon_out.len() {
+            epsilon_out[i] += epsilon[i] / *stddev;
+        }
+
+        epsilon_out
     }
 }
 

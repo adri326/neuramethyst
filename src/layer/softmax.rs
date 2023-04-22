@@ -54,22 +54,53 @@ impl NeuraPartialLayer for NeuraSoftmaxLayer {
     }
 }
 
-impl<F: Float + Scalar + NumAssignOps> NeuraTrainableLayer<DVector<F>> for NeuraSoftmaxLayer {
+impl<F: Float + Scalar + NumAssignOps> NeuraTrainableLayerBase<DVector<F>> for NeuraSoftmaxLayer {
     type Gradient = ();
+    type IntermediaryRepr = Self::Output; // Result of self.eval
 
     fn default_gradient(&self) -> Self::Gradient {
         ()
     }
 
+    fn apply_gradient(&mut self, _gradient: &Self::Gradient) {
+        // Noop
+    }
+
+    fn eval_training(&self, input: &DVector<F>) -> (Self::Output, Self::IntermediaryRepr) {
+        let res = self.eval(input);
+        (res.clone(), res)
+    }
+}
+
+impl<F: Float + Scalar + NumAssignOps> NeuraTrainableLayerSelf<DVector<F>> for NeuraSoftmaxLayer {
+    #[inline(always)]
+    fn regularize_layer(&self) -> Self::Gradient {
+        ()
+    }
+
+    #[inline(always)]
+    fn get_gradient(
+        &self,
+        input: &DVector<F>,
+        intermediary: &Self::IntermediaryRepr,
+        epsilon: &Self::Output,
+    ) -> Self::Gradient {
+        ()
+    }
+}
+
+impl<F: Float + Scalar + NumAssignOps> NeuraTrainableLayerBackprop<DVector<F>>
+    for NeuraSoftmaxLayer
+{
     fn backprop_layer(
         &self,
         input: &DVector<F>,
-        mut epsilon: Self::Output,
-    ) -> (DVector<F>, Self::Gradient) {
-        // Note: a constant value can be added to `input` to bring it to increase precision
-        let evaluated = self.eval(input);
+        evaluated: &Self::IntermediaryRepr,
+        epsilon: &Self::Output,
+    ) -> DVector<F> {
+        let mut epsilon = epsilon.clone();
 
-        // Compute $a_{l-1,i} \epsilon_{l,i}$
+        // Compute $a_{l-1,i} ° \epsilon_{l,i}$
         hadamard_product(&mut epsilon, &evaluated);
 
         // Compute $\sum_{k}{a_{l-1,k} \epsilon_{l,k}}$
@@ -80,15 +111,7 @@ impl<F: Float + Scalar + NumAssignOps> NeuraTrainableLayer<DVector<F>> for Neura
             epsilon[i] -= evaluated[i] * sum_diagonal_terms;
         }
 
-        (epsilon, ())
-    }
-
-    fn regularize_layer(&self) -> Self::Gradient {
-        ()
-    }
-
-    fn apply_gradient(&mut self, _gradient: &Self::Gradient) {
-        // Noop
+        epsilon
     }
 }
 
@@ -132,8 +155,9 @@ mod test {
                 for epsilon1 in [1.7, 1.9, 2.3] {
                     for epsilon2 in [2.9, 3.1, 3.7] {
                         let epsilon = dvector![epsilon1, epsilon2];
+                        let evaluated = layer.eval(&input);
 
-                        let (epsilon, _) = layer.backprop_layer(&input, epsilon);
+                        let epsilon = layer.backprop_layer(&input, &evaluated, &epsilon);
                         let expected = [
                             output[0] * (1.0 - output[0]) * epsilon1
                                 - output[1] * output[0] * epsilon2,
@@ -165,7 +189,8 @@ mod test {
             derivative += DMatrix::from_diagonal(&evaluated);
 
             let expected = derivative * &loss;
-            let (actual, _) = layer.backprop_layer(&input, loss);
+            let evaluated = layer.eval(&input);
+            let actual = layer.backprop_layer(&input, &evaluated, &loss);
 
             for i in 0..4 {
                 assert!((expected[i] - actual[i]).abs() < EPSILON);

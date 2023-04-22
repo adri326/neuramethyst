@@ -1,12 +1,20 @@
 use std::fs::File;
 
 use approx::assert_relative_eq;
-use nalgebra::{DMatrix, DVector, dvector};
-use neuramethyst::{prelude::{*, dense::NeuraDenseLayer}, derivable::{activation::{Relu, Tanh}, regularize::NeuraL0, loss::Euclidean}};
+use nalgebra::{dvector, DMatrix, DVector};
+use neuramethyst::{
+    derivable::{
+        activation::{Relu, Tanh},
+        loss::Euclidean,
+        regularize::NeuraL0,
+    },
+    prelude::{dense::NeuraDenseLayer, *},
+};
 
 fn load_test_data() -> Vec<(DMatrix<f64>, DVector<f64>, DMatrix<f64>, DVector<f64>)> {
     let file = File::open("tests/xor.json").unwrap();
-    let data: Vec<(DMatrix<f64>, DVector<f64>, DMatrix<f64>, DVector<f64>)> = serde_json::from_reader(&file).unwrap();
+    let data: Vec<(DMatrix<f64>, DVector<f64>, DMatrix<f64>, DVector<f64>)> =
+        serde_json::from_reader(&file).unwrap();
 
     data
 }
@@ -43,7 +51,7 @@ fn test_xor_training() {
             network.layer.weights.clone(),
             network.layer.bias.clone(),
             network.child_network.layer.weights.clone(),
-            network.child_network.layer.bias.clone()
+            network.child_network.layer.bias.clone(),
         );
 
         assert_relative_eq!(expected.0.as_slice(), actual.0.as_slice());

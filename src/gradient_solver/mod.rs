@@ -5,7 +5,7 @@ mod forward_forward;
 pub use forward_forward::NeuraForwardForward;
 
 use crate::{
-    layer::NeuraTrainableLayer,
+    layer::NeuraTrainableLayerBase,
     network::{NeuraTrainableNetwork, NeuraTrainableNetworkBase},
 };
 
@@ -17,17 +17,16 @@ pub trait NeuraGradientSolverFinal<LayerOutput>: NeuraGradientSolverBase {
     fn eval_final(&self, output: LayerOutput) -> Self::Output<LayerOutput, ()>;
 }
 
-pub trait NeuraGradientSolverTransient<LayerOutput>: NeuraGradientSolverBase {
-    fn eval_layer<
-        Input,
-        NetworkGradient,
-        RecGradient,
-        Layer: NeuraTrainableLayer<Input, Output = LayerOutput>,
-    >(
+pub trait NeuraGradientSolverTransient<Input, Layer: NeuraTrainableLayerBase<Input>>:
+    NeuraGradientSolverBase
+{
+    fn eval_layer<NetworkGradient, RecGradient>(
         &self,
         layer: &Layer,
         input: &Input,
-        rec_opt_output: Self::Output<LayerOutput, RecGradient>,
+        output: &Layer::Output,
+        layer_intermediary: &Layer::IntermediaryRepr,
+        rec_opt_output: Self::Output<Layer::Output, RecGradient>,
         combine_gradients: impl Fn(Layer::Gradient, RecGradient) -> NetworkGradient,
     ) -> Self::Output<Input, NetworkGradient>;
 }

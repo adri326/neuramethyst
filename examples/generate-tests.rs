@@ -30,7 +30,7 @@ fn main() {
         network.layer.weights.clone(),
         network.layer.bias.clone(),
         network.child_network.layer.weights.clone(),
-        network.child_network.layer.bias.clone()
+        network.child_network.layer.bias.clone(),
     )];
 
     for iteration in 0..4 {
@@ -45,7 +45,7 @@ fn main() {
             network.layer.weights.clone(),
             network.layer.bias.clone(),
             network.child_network.layer.weights.clone(),
-            network.child_network.layer.bias.clone()
+            network.child_network.layer.bias.clone(),
         ));
     }
 

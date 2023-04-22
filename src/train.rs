@@ -82,7 +82,10 @@ impl NeuraBatchedTrainer {
         network: &mut Network,
         inputs: Inputs,
         test_inputs: &[(Input, Target)],
-    ) -> Vec<(f64, f64)> {
+    ) -> Vec<(f64, f64)>
+    where
+        <Network as NeuraTrainableNetworkBase<Input>>::Gradient: std::fmt::Debug,
+    {
         let mut losses = Vec::new();
         let mut iter = inputs.into_iter();
         let factor = -self.learning_rate / (self.batch_size as f64);

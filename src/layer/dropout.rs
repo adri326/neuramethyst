@@ -61,24 +61,15 @@ impl<R: Rng, F: Float> NeuraLayer<DVector<F>> for NeuraDropoutLayer<R> {
     }
 }
 
-impl<R: Rng, F: Float> NeuraTrainableLayer<DVector<F>> for NeuraDropoutLayer<R> {
+impl<R: Rng, F: Float> NeuraTrainableLayerBase<DVector<F>> for NeuraDropoutLayer<R> {
     type Gradient = ();
+    type IntermediaryRepr = ();
+
+    fn eval_training(&self, input: &DVector<F>) -> (Self::Output, Self::IntermediaryRepr) {
+        (self.eval(input), ())
+    }
 
     fn default_gradient(&self) -> Self::Gradient {
-        ()
-    }
-
-    fn backprop_layer(
-        &self,
-        _input: &DVector<F>,
-        mut epsilon: Self::Output,
-    ) -> (DVector<F>, Self::Gradient) {
-        self.apply_dropout(&mut epsilon);
-
-        (epsilon, ())
-    }
-
-    fn regularize_layer(&self) -> Self::Gradient {
         ()
     }
 
@@ -110,6 +101,36 @@ impl<R: Rng, F: Float> NeuraTrainableLayer<DVector<F>> for NeuraDropoutLayer<R> 
     }
 }
 
+impl<R: Rng, F: Float> NeuraTrainableLayerSelf<DVector<F>> for NeuraDropoutLayer<R> {
+    fn regularize_layer(&self) -> Self::Gradient {
+        ()
+    }
+
+    fn get_gradient(
+        &self,
+        _input: &DVector<F>,
+        _intermediary: &Self::IntermediaryRepr,
+        _epsilon: &Self::Output,
+    ) -> Self::Gradient {
+        ()
+    }
+}
+
+impl<R: Rng, F: Float> NeuraTrainableLayerBackprop<DVector<F>> for NeuraDropoutLayer<R> {
+    fn backprop_layer(
+        &self,
+        _input: &DVector<F>,
+        _intermediary: &Self::IntermediaryRepr,
+        epsilon: &Self::Output,
+    ) -> DVector<F> {
+        let mut epsilon = epsilon.clone();
+
+        self.apply_dropout(&mut epsilon);
+
+        epsilon
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -121,7 +142,7 @@ mod test {
             .unwrap();
 
         for _ in 0..100 {
-            <NeuraDropoutLayer<_> as NeuraTrainableLayer<DVector<f64>>>::prepare_layer(
+            <NeuraDropoutLayer<_> as NeuraTrainableLayerBase<DVector<f64>>>::prepare_layer(
                 &mut layer, true,
             );
             assert!(layer.multiplier.is_finite());
