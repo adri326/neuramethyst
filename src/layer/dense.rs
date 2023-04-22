@@ -242,7 +242,7 @@ impl<
 {
     fn backprop_layer(
         &self,
-        input: &DVector<F>,
+        _input: &DVector<F>,
         evaluated: &Self::IntermediaryRepr,
         epsilon: &Self::Output,
     ) -> DVector<F> {

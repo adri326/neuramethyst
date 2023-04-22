@@ -81,9 +81,9 @@ impl<F: Float + Scalar + NumAssignOps> NeuraTrainableLayerSelf<DVector<F>> for N
     #[inline(always)]
     fn get_gradient(
         &self,
-        input: &DVector<F>,
-        intermediary: &Self::IntermediaryRepr,
-        epsilon: &Self::Output,
+        _input: &DVector<F>,
+        _intermediary: &Self::IntermediaryRepr,
+        _epsilon: &Self::Output,
     ) -> Self::Gradient {
         ()
     }

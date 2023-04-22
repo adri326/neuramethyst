@@ -89,9 +89,9 @@ impl<F: Float + Scalar + NumAssignOps> NeuraTrainableLayerSelf<DVector<F>> for N
 
     fn get_gradient(
         &self,
-        input: &DVector<F>,
-        intermediary: &Self::IntermediaryRepr,
-        epsilon: &Self::Output,
+        _input: &DVector<F>,
+        _intermediary: &Self::IntermediaryRepr,
+        _epsilon: &Self::Output,
     ) -> Self::Gradient {
         ()
     }
@@ -102,7 +102,7 @@ impl<F: Float + Scalar + NumAssignOps> NeuraTrainableLayerBackprop<DVector<F>>
 {
     fn backprop_layer(
         &self,
-        input: &DVector<F>,
+        _input: &DVector<F>,
         (jacobian_partial, stddev): &Self::IntermediaryRepr,
         epsilon: &Self::Output,
     ) -> DVector<F> {

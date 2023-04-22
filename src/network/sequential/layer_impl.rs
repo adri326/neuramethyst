@@ -63,9 +63,9 @@ impl<
 
     fn get_gradient(
         &self,
-        input: &Input,
-        intermediary: &Self::IntermediaryRepr,
-        epsilon: &Self::Output,
+        _input: &Input,
+        _intermediary: &Self::IntermediaryRepr,
+        _epsilon: &Self::Output,
     ) -> Self::Gradient {
         unimplemented!("NeuraSequential::get_gradient is not yet implemented, sorry");
     }
