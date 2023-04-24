@@ -1,4 +1,4 @@
-use std::borrow::Borrow;
+use std::{borrow::Borrow, rc::Rc};
 
 use nalgebra::{Const, DVector, Dyn, VecStorage};
 
@@ -17,9 +17,10 @@ pub trait NeuraCombineInputs<T> {
     type Combined;
 
     fn combine(&self, inputs: Vec<impl Borrow<T>>) -> Self::Combined;
+}
 
-    // TODO:
-    // fn shape(&self, input_shapes: Vec<NeuraShape>) -> NeuraShape;
+pub trait NeuraSplitInputs<T>: NeuraCombineInputs<T> {
+    fn split(&self, combined: Self::Combined, input_shapes: &[NeuraShape]) -> Vec<Rc<T>>;
 }
 
 impl<F: Clone> NeuraCombineInputs<DVector<F>> for NeuraAxisAppend {

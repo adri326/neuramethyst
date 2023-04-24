@@ -29,6 +29,12 @@ pub trait NeuraGradientSolverTransient<Input, Layer: NeuraTrainableLayerBase<Inp
         rec_opt_output: Self::Output<Layer::Output, RecGradient>,
         combine_gradients: impl Fn(Layer::Gradient, RecGradient) -> NetworkGradient,
     ) -> Self::Output<Input, NetworkGradient>;
+
+    fn map_epsilon<From, To, Gradient, Cb: Fn(From) -> To>(
+        &self,
+        rec_opt_output: Self::Output<From, Gradient>,
+        callback: Cb
+    ) -> Self::Output<To, Gradient>;
 }
 
 pub trait NeuraGradientSolver<Input, Target, Trainable: NeuraTrainableNetworkBase<Input>> {

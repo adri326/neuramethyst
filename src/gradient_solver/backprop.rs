@@ -79,6 +79,16 @@ impl<
 
         (epsilon_out, combine_gradients(layer_gradient, rec_gradient))
     }
+
+    fn map_epsilon<From, To, Gradient, Cb: Fn(From) -> To>(
+        &self,
+        rec_opt_output: Self::Output<From, Gradient>,
+        callback: Cb
+    ) -> Self::Output<To, Gradient> {
+        (
+            callback(rec_opt_output.0), rec_opt_output.1
+        )
+    }
 }
 
 #[cfg(test)]

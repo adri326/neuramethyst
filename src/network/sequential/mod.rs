@@ -167,18 +167,6 @@ where
     }
 }
 
-impl<Input: Clone, Optimizer: NeuraGradientSolverFinal<Input>>
-    NeuraTrainableNetwork<Input, Optimizer> for ()
-{
-    fn traverse(
-        &self,
-        input: &Input,
-        optimizer: &Optimizer,
-    ) -> Optimizer::Output<Input, Self::Gradient> {
-        optimizer.eval_final(input.clone())
-    }
-}
-
 impl<Layer> From<Layer> for NeuraSequential<Layer, ()> {
     fn from(layer: Layer) -> Self {
         Self {

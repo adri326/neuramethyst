@@ -1,5 +1,5 @@
 use crate::{
-    algebra::NeuraVectorSpace, gradient_solver::NeuraGradientSolverBase, layer::NeuraLayer,
+    algebra::NeuraVectorSpace, gradient_solver::{NeuraGradientSolverBase, NeuraGradientSolverFinal}, layer::NeuraLayer,
 };
 
 pub mod residual;
@@ -30,4 +30,16 @@ where
         input: &Input,
         optimizer: &Optimizer,
     ) -> Optimizer::Output<Input, Self::Gradient>;
+}
+
+impl<Input: Clone, Optimizer: NeuraGradientSolverFinal<Input>>
+    NeuraTrainableNetwork<Input, Optimizer> for ()
+{
+    fn traverse(
+        &self,
+        input: &Input,
+        optimizer: &Optimizer,
+    ) -> Optimizer::Output<Input, Self::Gradient> {
+        optimizer.eval_final(input.clone())
+    }
 }

@@ -5,6 +5,8 @@ use num::Float;
 
 use crate::layer::*;
 
+mod layer_impl;
+
 mod input;
 pub use input::*;
 
@@ -88,55 +90,6 @@ impl<Layer, ChildNetwork, Axis> NeuraResidualNode<Layer, ChildNetwork, Axis> {
             // Drop the knowledge of output_shape
             output_shape: None,
         }
-    }
-}
-
-impl<F: Float + Scalar, Layer, ChildNetwork, Axis> NeuraLayer<NeuraResidualInput<DVector<F>>>
-    for NeuraResidualNode<Layer, ChildNetwork, Axis>
-where
-    Axis: NeuraCombineInputs<DVector<F>>,
-    Layer: NeuraLayer<Axis::Combined, Output = DVector<F>>,
-    ChildNetwork: NeuraLayer<NeuraResidualInput<DVector<F>>>,
-{
-    type Output = <ChildNetwork as NeuraLayer<NeuraResidualInput<DVector<F>>>>::Output;
-
-    fn eval(&self, input: &NeuraResidualInput<DVector<F>>) -> Self::Output {
-        let (inputs, mut rest) = input.shift();
-
-        let layer_input = self.axis.combine(inputs);
-        let layer_output = Rc::new(self.layer.eval(&layer_input));
-
-        for &offset in &self.offsets {
-            rest.push(offset, Rc::clone(&layer_output));
-        }
-
-        self.child_network.eval(&rest)
-    }
-}
-
-impl<F: Clone, Output: Clone, Layers> NeuraLayer<DVector<F>> for NeuraResidual<Layers>
-where
-    Layers: NeuraLayer<NeuraResidualInput<DVector<F>>, Output = NeuraResidualInput<Output>>,
-{
-    type Output = Output;
-
-    fn eval(&self, input: &DVector<F>) -> Self::Output {
-        let input: Rc<DVector<F>> = Rc::new((*input).clone());
-        let mut inputs = NeuraResidualInput::new();
-
-        for &offset in &self.initial_offsets {
-            inputs.push(offset, Rc::clone(&input));
-        }
-
-        drop(input);
-
-        let output = self.layers.eval(&inputs);
-
-        let result = output.get_first()
-            .expect("Invalid NeuraResidual state: network returned no data, did you forget to link the last layer?")
-            .into();
-
-        Rc::unwrap_or_clone(result)
     }
 }
 
