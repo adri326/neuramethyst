@@ -122,6 +122,14 @@ impl<F, Act, Reg, R: Rng> NeuraDenseLayerPartial<F, Act, Reg, R> {
     }
 }
 
+impl<F: Float, Act: NeuraDerivable<F>, Reg: NeuraDerivable<F>> NeuraShapedLayer
+    for NeuraDenseLayer<F, Act, Reg>
+{
+    fn output_shape(&self) -> NeuraShape {
+        NeuraShape::Vector(self.weights.shape().0)
+    }
+}
+
 impl<
         F: Float + std::fmt::Debug + 'static,
         Act: NeuraDerivable<F>,
@@ -143,10 +151,6 @@ where
             self.activation,
             self.regularization,
         ))
-    }
-
-    fn output_shape(constructed: &Self::Constructed) -> NeuraShape {
-        NeuraShape::Vector(constructed.weights.shape().0)
     }
 }
 

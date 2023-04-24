@@ -1,6 +1,7 @@
 #![feature(generic_arg_infer)]
 // #![feature(generic_const_exprs)]
 #![feature(associated_type_defaults)]
+#![feature(arc_unwrap_or_clone)]
 
 pub mod algebra;
 pub mod derivable;

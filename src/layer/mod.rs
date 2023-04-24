@@ -48,13 +48,15 @@ impl<Input: Clone> NeuraLayer<Input> for () {
     }
 }
 
+pub trait NeuraShapedLayer {
+    fn output_shape(&self) -> NeuraShape;
+}
+
 pub trait NeuraPartialLayer {
-    type Constructed;
+    type Constructed: NeuraShapedLayer;
     type Err;
 
     fn construct(self, input_shape: NeuraShape) -> Result<Self::Constructed, Self::Err>;
-
-    fn output_shape(constructed: &Self::Constructed) -> NeuraShape;
 }
 
 pub trait NeuraTrainableLayerBase<Input>: NeuraLayer<Input> {

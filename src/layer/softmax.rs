@@ -41,16 +41,18 @@ impl<F: Float + Scalar + NumAssignOps> NeuraLayer<DVector<F>> for NeuraSoftmaxLa
     }
 }
 
+impl NeuraShapedLayer for NeuraSoftmaxLayer {
+    fn output_shape(&self) -> NeuraShape {
+        self.shape
+    }
+}
+
 impl NeuraPartialLayer for NeuraSoftmaxLayer {
     type Constructed = Self;
     type Err = ();
 
     fn construct(self, input_shape: NeuraShape) -> Result<Self::Constructed, Self::Err> {
         Ok(Self { shape: input_shape })
-    }
-
-    fn output_shape(constructed: &Self::Constructed) -> NeuraShape {
-        constructed.shape
     }
 }
 

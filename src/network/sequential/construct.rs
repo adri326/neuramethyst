@@ -1,3 +1,5 @@
+use crate::layer::NeuraShapedLayer;
+
 use super::*;
 
 pub trait NeuraSequentialConstruct {
@@ -40,7 +42,7 @@ impl<Layer: NeuraPartialLayer, ChildNetwork: NeuraSequentialConstruct> NeuraSequ
         // TODO: ensure that this operation (and all recursive operations) are directly allocated on the heap
         let child_network = self
             .child_network
-            .construct(Layer::output_shape(&layer))
+            .construct(layer.output_shape())
             .map_err(|e| NeuraSequentialConstructErr::Child(e))?;
         let child_network = Box::new(child_network);
 
@@ -48,5 +50,21 @@ impl<Layer: NeuraPartialLayer, ChildNetwork: NeuraSequentialConstruct> NeuraSequ
             layer,
             child_network,
         })
+    }
+}
+
+impl<Layer: NeuraShapedLayer> NeuraShapedLayer for NeuraSequential<Layer, ()> {
+    #[inline(always)]
+    fn output_shape(&self) -> NeuraShape {
+        self.layer.output_shape()
+    }
+}
+
+impl<Layer, ChildNetwork: NeuraShapedLayer> NeuraShapedLayer
+    for NeuraSequential<Layer, ChildNetwork>
+{
+    #[inline(always)]
+    fn output_shape(&self) -> NeuraShape {
+        self.child_network.output_shape()
     }
 }

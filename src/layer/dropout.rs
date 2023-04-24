@@ -35,6 +35,12 @@ impl<R: Rng> NeuraDropoutLayer<R> {
     }
 }
 
+impl<R: Rng> NeuraShapedLayer for NeuraDropoutLayer<R> {
+    fn output_shape(&self) -> NeuraShape {
+        self.shape
+    }
+}
+
 impl<R: Rng> NeuraPartialLayer for NeuraDropoutLayer<R> {
     type Constructed = NeuraDropoutLayer<R>;
 
@@ -44,10 +50,6 @@ impl<R: Rng> NeuraPartialLayer for NeuraDropoutLayer<R> {
         self.shape = input_shape;
         self.mask = DVector::from_element(input_shape.size(), false);
         Ok(self)
-    }
-
-    fn output_shape(constructed: &Self::Constructed) -> NeuraShape {
-        constructed.shape
     }
 }
 

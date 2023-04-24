@@ -2,6 +2,7 @@ use crate::{
     algebra::NeuraVectorSpace, gradient_solver::NeuraGradientSolverBase, layer::NeuraLayer,
 };
 
+pub mod residual;
 pub mod sequential;
 
 // TODO: extract regularize from this, so that we can drop the trait constraints on NeuraSequential's impl
