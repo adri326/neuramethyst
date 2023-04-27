@@ -14,7 +14,7 @@ pub trait NeuraNetworkBase {
 pub trait NeuraNetwork<NodeInput: Clone>: NeuraNetworkBase
 where
     Self::Layer: NeuraLayer<Self::LayerInput>,
-    <Self::Layer as NeuraLayer<Self::LayerInput>>::Output: Clone
+    <Self::Layer as NeuraLayer<Self::LayerInput>>::Output: Clone,
 {
     /// The type of the input to `Self::Layer`
     type LayerInput: Clone;
@@ -25,12 +25,25 @@ where
     /// Maps the input of network node to the enclosed layer
     fn map_input<'a>(&'_ self, input: &'a NodeInput) -> Cow<'a, Self::LayerInput>;
     /// Maps the output of the enclosed layer to the output of the network node
-    fn map_output<'a>(&'_ self, input: &'_ NodeInput, layer_output: &'a <Self::Layer as NeuraLayer<Self::LayerInput>>::Output) -> Cow<'a, Self::NodeOutput>;
+    fn map_output<'a>(
+        &'_ self,
+        input: &'_ NodeInput,
+        layer_output: &'a <Self::Layer as NeuraLayer<Self::LayerInput>>::Output,
+    ) -> Cow<'a, Self::NodeOutput>;
 
     /// Maps a gradient in the format of the node's output into the format of the enclosed layer's output
-    fn map_gradient_in<'a>(&'_ self, input: &'_ NodeInput, gradient_in: &'a Self::NodeOutput) -> Cow<'a, <Self::Layer as NeuraLayer<Self::LayerInput>>::Output>;
+    fn map_gradient_in<'a>(
+        &'_ self,
+        input: &'_ NodeInput,
+        gradient_in: &'a Self::NodeOutput,
+    ) -> Cow<'a, <Self::Layer as NeuraLayer<Self::LayerInput>>::Output>;
     /// Maps a gradient in the format of the enclosed layer's input into the format of the node's input
-    fn map_gradient_out<'a>(&'_ self, input: &'_ NodeInput, gradient_in: &'_ Self::NodeOutput, gradient_out: &'a Self::LayerInput) -> Cow<'a, NodeInput>;
+    fn map_gradient_out<'a>(
+        &'_ self,
+        input: &'_ NodeInput,
+        gradient_in: &'_ Self::NodeOutput,
+        gradient_out: &'a Self::LayerInput,
+    ) -> Cow<'a, NodeInput>;
 }
 
 pub trait NeuraNetworkRec: NeuraNetworkBase {
@@ -39,6 +52,4 @@ pub trait NeuraNetworkRec: NeuraNetworkBase {
     type NextNode;
 
     fn get_next(&self) -> &Self::NextNode;
-
-
 }

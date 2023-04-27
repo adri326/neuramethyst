@@ -32,11 +32,8 @@ impl<Input, Layer: NeuraLayer<Input>> NeuraLayer<Input> for NeuraLockLayer<Layer
     }
 }
 
-impl<Input, Layer: NeuraTrainableLayerBase<Input>> NeuraTrainableLayerBase<Input>
-    for NeuraLockLayer<Layer>
-{
+impl<Layer: NeuraTrainableLayerBase> NeuraTrainableLayerBase for NeuraLockLayer<Layer> {
     type Gradient = ();
-    type IntermediaryRepr = Layer::IntermediaryRepr;
 
     fn default_gradient(&self) -> Self::Gradient {
         ()
@@ -45,13 +42,19 @@ impl<Input, Layer: NeuraTrainableLayerBase<Input>> NeuraTrainableLayerBase<Input
     fn apply_gradient(&mut self, _gradient: &Self::Gradient) {
         // Noop
     }
+}
+
+impl<Input, Layer: NeuraTrainableLayerEval<Input>> NeuraTrainableLayerEval<Input>
+    for NeuraLockLayer<Layer>
+{
+    type IntermediaryRepr = Layer::IntermediaryRepr;
 
     fn eval_training(&self, input: &Input) -> (Self::Output, Self::IntermediaryRepr) {
         self.layer.eval_training(input)
     }
 }
 
-impl<Input, Layer: NeuraTrainableLayerBase<Input>> NeuraTrainableLayerSelf<Input>
+impl<Input, Layer: NeuraTrainableLayerEval<Input>> NeuraTrainableLayerSelf<Input>
     for NeuraLockLayer<Layer>
 {
     fn regularize_layer(&self) -> Self::Gradient {

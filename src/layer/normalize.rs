@@ -56,9 +56,8 @@ impl<F: Float + Scalar> NeuraLayer<DVector<F>> for NeuraNormalizeLayer {
     }
 }
 
-impl<F: Float + Scalar + NumAssignOps> NeuraTrainableLayerBase<DVector<F>> for NeuraNormalizeLayer {
+impl NeuraTrainableLayerBase for NeuraNormalizeLayer {
     type Gradient = ();
-    type IntermediaryRepr = (DMatrix<F>, F); // Partial jacobian matrix (without the kroenecker term) and stddev
 
     fn default_gradient(&self) -> Self::Gradient {
         ()
@@ -67,6 +66,10 @@ impl<F: Float + Scalar + NumAssignOps> NeuraTrainableLayerBase<DVector<F>> for N
     fn apply_gradient(&mut self, _gradient: &Self::Gradient) {
         // Noop
     }
+}
+
+impl<F: Float + Scalar + NumAssignOps> NeuraTrainableLayerEval<DVector<F>> for NeuraNormalizeLayer {
+    type IntermediaryRepr = (DMatrix<F>, F); // Partial jacobian matrix (without the kroenecker term) and stddev
 
     fn eval_training(&self, input: &DVector<F>) -> (Self::Output, Self::IntermediaryRepr) {
         let (mean, variance, len) = mean_variance(input);

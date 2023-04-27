@@ -1,5 +1,7 @@
 use crate::{
-    algebra::NeuraVectorSpace, gradient_solver::{NeuraGradientSolverBase, NeuraGradientSolverFinal}, layer::NeuraLayer,
+    algebra::NeuraVectorSpace,
+    gradient_solver::{NeuraGradientSolverBase, NeuraGradientSolverFinal},
+    layer::NeuraLayer,
 };
 
 // pub mod residual;

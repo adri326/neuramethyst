@@ -59,20 +59,14 @@ pub trait NeuraPartialLayer {
     fn construct(self, input_shape: NeuraShape) -> Result<Self::Constructed, Self::Err>;
 }
 
-pub trait NeuraTrainableLayerBase<Input>: NeuraLayer<Input> {
+pub trait NeuraTrainableLayerBase {
     /// The representation of the layer gradient as a vector space
     type Gradient: NeuraVectorSpace;
-
-    /// An intermediary object type to be passed to the various training methods
-    type IntermediaryRepr;
 
     fn default_gradient(&self) -> Self::Gradient;
 
     /// Applies `δW_l` to the weights of the layer
     fn apply_gradient(&mut self, gradient: &Self::Gradient);
-
-    // TODO: move this into another trait
-    fn eval_training(&self, input: &Input) -> (Self::Output, Self::IntermediaryRepr);
 
     /// Arbitrary computation that can be executed at the start of an epoch
     #[allow(unused_variables)]
@@ -80,9 +74,17 @@ pub trait NeuraTrainableLayerBase<Input>: NeuraLayer<Input> {
     fn prepare_layer(&mut self, is_training: bool) {}
 }
 
+pub trait NeuraTrainableLayerEval<Input>: NeuraTrainableLayerBase + NeuraLayer<Input> {
+    /// An intermediary object type to be passed to the various training methods
+    type IntermediaryRepr;
+
+    // TODO: move this into another trait
+    fn eval_training(&self, input: &Input) -> (Self::Output, Self::IntermediaryRepr);
+}
+
 /// Contains methods relative to a layer's ability to compute its own weights gradients,
 /// given the derivative of the output variables.
-pub trait NeuraTrainableLayerSelf<Input>: NeuraTrainableLayerBase<Input> {
+pub trait NeuraTrainableLayerSelf<Input>: NeuraTrainableLayerEval<Input> {
     /// Computes the regularization
     fn regularize_layer(&self) -> Self::Gradient;
 
@@ -117,7 +119,7 @@ pub trait NeuraTrainableLayerSelf<Input>: NeuraTrainableLayerBase<Input> {
 //     }
 // }
 
-pub trait NeuraTrainableLayerBackprop<Input>: NeuraTrainableLayerBase<Input> {
+pub trait NeuraTrainableLayerBackprop<Input>: NeuraTrainableLayerEval<Input> {
     /// Computes the backpropagation term and the derivative of the internal weights,
     /// using the `input` vector outputted by the previous layer and the backpropagation term `epsilon` of the next layer.
     ///
@@ -137,9 +139,8 @@ pub trait NeuraTrainableLayerBackprop<Input>: NeuraTrainableLayerBase<Input> {
     ) -> Input;
 }
 
-impl<Input: Clone> NeuraTrainableLayerBase<Input> for () {
+impl NeuraTrainableLayerBase for () {
     type Gradient = ();
-    type IntermediaryRepr = ();
 
     #[inline(always)]
     fn default_gradient(&self) -> Self::Gradient {
@@ -150,7 +151,12 @@ impl<Input: Clone> NeuraTrainableLayerBase<Input> for () {
     fn apply_gradient(&mut self, _gradient: &Self::Gradient) {
         // Noop
     }
+}
 
+impl<Input: Clone> NeuraTrainableLayerEval<Input> for () {
+    type IntermediaryRepr = ();
+
+    #[inline(always)]
     fn eval_training(&self, input: &Input) -> (Self::Output, Self::IntermediaryRepr) {
         (self.eval(input), ())
     }

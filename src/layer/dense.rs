@@ -175,17 +175,9 @@ impl<
         F: Float + std::fmt::Debug + 'static + std::ops::AddAssign + std::ops::MulAssign,
         Act: NeuraDerivable<F>,
         Reg: NeuraDerivable<F>,
-    > NeuraTrainableLayerBase<DVector<F>> for NeuraDenseLayer<F, Act, Reg>
+    > NeuraTrainableLayerBase for NeuraDenseLayer<F, Act, Reg>
 {
     type Gradient = (DMatrix<F>, DVector<F>);
-    type IntermediaryRepr = DVector<F>; // pre-activation values
-
-    fn eval_training(&self, input: &DVector<F>) -> (Self::Output, Self::IntermediaryRepr) {
-        let evaluated = &self.weights * input + &self.bias;
-        let output = evaluated.map(|x| self.activation.eval(x));
-
-        (output, evaluated)
-    }
 
     fn default_gradient(&self) -> Self::Gradient {
         (
@@ -197,6 +189,22 @@ impl<
     fn apply_gradient(&mut self, gradient: &Self::Gradient) {
         self.weights += &gradient.0;
         self.bias += &gradient.1;
+    }
+}
+
+impl<
+        F: Float + std::fmt::Debug + 'static + std::ops::AddAssign + std::ops::MulAssign,
+        Act: NeuraDerivable<F>,
+        Reg: NeuraDerivable<F>,
+    > NeuraTrainableLayerEval<DVector<F>> for NeuraDenseLayer<F, Act, Reg>
+{
+    type IntermediaryRepr = DVector<F>; // pre-activation values
+
+    fn eval_training(&self, input: &DVector<F>) -> (Self::Output, Self::IntermediaryRepr) {
+        let evaluated = &self.weights * input + &self.bias;
+        let output = evaluated.map(|x| self.activation.eval(x));
+
+        (output, evaluated)
     }
 }
 

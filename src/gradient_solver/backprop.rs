@@ -1,9 +1,6 @@
 use num::ToPrimitive;
 
-use crate::{
-    derivable::NeuraLoss, layer::*,
-    network::*,
-};
+use crate::{derivable::NeuraLoss, layer::*, network::*};
 
 use super::*;
 
@@ -83,11 +80,9 @@ impl<
     fn map_epsilon<From, To, Gradient, Cb: Fn(From) -> To>(
         &self,
         rec_opt_output: Self::Output<From, Gradient>,
-        callback: Cb
+        callback: Cb,
     ) -> Self::Output<To, Gradient> {
-        (
-            callback(rec_opt_output.0), rec_opt_output.1
-        )
+        (callback(rec_opt_output.0), rec_opt_output.1)
     }
 }
 
@@ -95,30 +90,38 @@ trait BackpropRecurse<Input, Network, Gradient> {
     fn recurse(&self, network: &Network, input: &Input) -> (Input, Gradient);
 }
 
-impl<Input, Loss: NeuraLoss<Input>> BackpropRecurse<Input, (), ()> for (&NeuraBackprop<Loss>, &Loss::Target) {
+impl<Input, Loss: NeuraLoss<Input>> BackpropRecurse<Input, (), ()>
+    for (&NeuraBackprop<Loss>, &Loss::Target)
+{
     fn recurse(&self, _network: &(), input: &Input) -> (Input, ()) {
         (self.0.loss.nabla(self.1, input), ())
     }
 }
 
 impl<
-    Input: Clone,
-    Network: NeuraNetworkRec + NeuraNetwork<Input> + NeuraTrainableLayerBase<Input>,
-    Loss,
-    Target
-> BackpropRecurse<Input, Network, Network::Gradient> for (&NeuraBackprop<Loss>, &Target)
+        Input: Clone,
+        Network: NeuraNetworkRec + NeuraNetwork<Input> + NeuraTrainableLayerEval<Input>,
+        Loss,
+        Target,
+    > BackpropRecurse<Input, Network, Network::Gradient> for (&NeuraBackprop<Loss>, &Target)
 where
     // Verify that we can traverse recursively
-    for<'a> (&'a NeuraBackprop<Loss>, &'a Target): BackpropRecurse<Network::NodeOutput, Network::NextNode, <Network::NextNode as NeuraTrainableLayerBase<Network::NodeOutput>>::Gradient>,
+    for<'a> (&'a NeuraBackprop<Loss>, &'a Target): BackpropRecurse<
+        Network::NodeOutput,
+        Network::NextNode,
+        <Network::NextNode as NeuraTrainableLayerBase>::Gradient,
+    >,
     // Verify that the current layer implements the right traits
-    Network::Layer: NeuraTrainableLayerSelf<Network::LayerInput> + NeuraTrainableLayerBackprop<Network::LayerInput>,
+    Network::Layer: NeuraTrainableLayerSelf<Network::LayerInput>
+        + NeuraTrainableLayerBackprop<Network::LayerInput>,
     // Verify that the layer output can be cloned
     <Network::Layer as NeuraLayer<Network::LayerInput>>::Output: Clone,
-    Network::NextNode: NeuraTrainableLayerBase<Network::NodeOutput>,
+    Network::NextNode: NeuraTrainableLayerEval<Network::NodeOutput>,
 {
     fn recurse(&self, network: &Network, input: &Input) -> (Input, Network::Gradient) {
         let layer_input = network.map_input(input);
-        let (layer_output, layer_intermediary) = network.get_layer().eval_training(layer_input.as_ref());
+        let (layer_output, layer_intermediary) =
+            network.get_layer().eval_training(layer_input.as_ref());
         let output = network.map_output(input, &layer_output);
 
         let (epsilon_in, gradient_rec) = self.recurse(network.get_next(), output.as_ref());

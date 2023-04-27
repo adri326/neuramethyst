@@ -1,5 +1,5 @@
 use super::*;
-use crate::layer::NeuraTrainableLayerBackprop;
+use crate::layer::{NeuraTrainableLayerBackprop, NeuraTrainableLayerEval};
 
 impl<Input, Layer: NeuraLayer<Input>, ChildNetwork: NeuraLayer<Layer::Output>> NeuraLayer<Input>
     for NeuraSequential<Layer, ChildNetwork>
@@ -11,29 +11,15 @@ impl<Input, Layer: NeuraLayer<Input>, ChildNetwork: NeuraLayer<Layer::Output>> N
     }
 }
 
-impl<
-        Input,
-        Layer: NeuraTrainableLayerBase<Input>,
-        ChildNetwork: NeuraTrainableLayerBase<Layer::Output>,
-    > NeuraTrainableLayerBase<Input> for NeuraSequential<Layer, ChildNetwork>
+impl<Layer: NeuraTrainableLayerBase, ChildNetwork: NeuraTrainableLayerBase> NeuraTrainableLayerBase
+    for NeuraSequential<Layer, ChildNetwork>
 {
     type Gradient = (Layer::Gradient, Box<ChildNetwork::Gradient>);
-    type IntermediaryRepr = (Layer::IntermediaryRepr, Box<ChildNetwork::IntermediaryRepr>);
 
     fn default_gradient(&self) -> Self::Gradient {
         (
             self.layer.default_gradient(),
             Box::new(self.child_network.default_gradient()),
-        )
-    }
-
-    fn eval_training(&self, input: &Input) -> (Self::Output, Self::IntermediaryRepr) {
-        let (layer_output, layer_intermediary) = self.layer.eval_training(input);
-        let (child_output, child_intermediary) = self.child_network.eval_training(&layer_output);
-
-        (
-            child_output,
-            (layer_intermediary, Box::new(child_intermediary)),
         )
     }
 
@@ -45,6 +31,25 @@ impl<
     fn apply_gradient(&mut self, gradient: &Self::Gradient) {
         self.layer.apply_gradient(&gradient.0);
         self.child_network.apply_gradient(&gradient.1);
+    }
+}
+
+impl<
+        Input,
+        Layer: NeuraTrainableLayerEval<Input>,
+        ChildNetwork: NeuraTrainableLayerEval<Layer::Output>,
+    > NeuraTrainableLayerEval<Input> for NeuraSequential<Layer, ChildNetwork>
+{
+    type IntermediaryRepr = (Layer::IntermediaryRepr, Box<ChildNetwork::IntermediaryRepr>);
+
+    fn eval_training(&self, input: &Input) -> (Self::Output, Self::IntermediaryRepr) {
+        let (layer_output, layer_intermediary) = self.layer.eval_training(input);
+        let (child_output, child_intermediary) = self.child_network.eval_training(&layer_output);
+
+        (
+            child_output,
+            (layer_intermediary, Box::new(child_intermediary)),
+        )
     }
 }
 

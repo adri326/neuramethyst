@@ -138,7 +138,7 @@ impl<
     fn map_epsilon<From, To, Gradient, Cb: Fn(From) -> To>(
         &self,
         rec_opt_output: Self::Output<From, Gradient>,
-        _callback: Cb
+        _callback: Cb,
     ) -> Self::Output<To, Gradient> {
         rec_opt_output
     }

@@ -56,9 +56,8 @@ impl NeuraPartialLayer for NeuraSoftmaxLayer {
     }
 }
 
-impl<F: Float + Scalar + NumAssignOps> NeuraTrainableLayerBase<DVector<F>> for NeuraSoftmaxLayer {
+impl NeuraTrainableLayerBase for NeuraSoftmaxLayer {
     type Gradient = ();
-    type IntermediaryRepr = Self::Output; // Result of self.eval
 
     fn default_gradient(&self) -> Self::Gradient {
         ()
@@ -67,6 +66,10 @@ impl<F: Float + Scalar + NumAssignOps> NeuraTrainableLayerBase<DVector<F>> for N
     fn apply_gradient(&mut self, _gradient: &Self::Gradient) {
         // Noop
     }
+}
+
+impl<F: Float + Scalar + NumAssignOps> NeuraTrainableLayerEval<DVector<F>> for NeuraSoftmaxLayer {
+    type IntermediaryRepr = Self::Output; // Result of self.eval
 
     fn eval_training(&self, input: &DVector<F>) -> (Self::Output, Self::IntermediaryRepr) {
         let res = self.eval(input);

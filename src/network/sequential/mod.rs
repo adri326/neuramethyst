@@ -1,8 +1,9 @@
 use super::{NeuraOldTrainableNetwork, NeuraOldTrainableNetworkBase};
 use crate::{
-    gradient_solver::{NeuraGradientSolverTransient},
+    gradient_solver::NeuraGradientSolverTransient,
     layer::{
-        NeuraLayer, NeuraPartialLayer, NeuraShape, NeuraTrainableLayerBase, NeuraTrainableLayerSelf,
+        NeuraLayer, NeuraPartialLayer, NeuraShape, NeuraTrainableLayerBase,
+        NeuraTrainableLayerEval, NeuraTrainableLayerSelf,
     },
 };
 
@@ -81,7 +82,7 @@ impl<Layer, ChildNetwork> NeuraSequential<Layer, ChildNetwork> {
 
 impl<
         Input,
-        Layer: NeuraTrainableLayerBase<Input> + NeuraTrainableLayerSelf<Input>,
+        Layer: NeuraTrainableLayerEval<Input> + NeuraTrainableLayerSelf<Input>,
         ChildNetwork: NeuraOldTrainableNetworkBase<Layer::Output>,
     > NeuraOldTrainableNetworkBase<Input> for NeuraSequential<Layer, ChildNetwork>
 {
@@ -141,7 +142,7 @@ impl<Input: Clone> NeuraOldTrainableNetworkBase<Input> for () {
 
 impl<
         Input,
-        Layer: NeuraTrainableLayerBase<Input> + NeuraTrainableLayerSelf<Input>,
+        Layer: NeuraTrainableLayerEval<Input> + NeuraTrainableLayerSelf<Input>,
         Optimizer: NeuraGradientSolverTransient<Input, Layer>,
         ChildNetwork: NeuraOldTrainableNetworkBase<Layer::Output>,
     > NeuraOldTrainableNetwork<Input, Optimizer> for NeuraSequential<Layer, ChildNetwork>

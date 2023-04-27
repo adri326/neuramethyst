@@ -63,13 +63,8 @@ impl<R: Rng, F: Float> NeuraLayer<DVector<F>> for NeuraDropoutLayer<R> {
     }
 }
 
-impl<R: Rng, F: Float> NeuraTrainableLayerBase<DVector<F>> for NeuraDropoutLayer<R> {
+impl<R: Rng> NeuraTrainableLayerBase for NeuraDropoutLayer<R> {
     type Gradient = ();
-    type IntermediaryRepr = ();
-
-    fn eval_training(&self, input: &DVector<F>) -> (Self::Output, Self::IntermediaryRepr) {
-        (self.eval(input), ())
-    }
 
     fn default_gradient(&self) -> Self::Gradient {
         ()
@@ -100,6 +95,14 @@ impl<R: Rng, F: Float> NeuraTrainableLayerBase<DVector<F>> for NeuraDropoutLayer
                 break;
             }
         }
+    }
+}
+
+impl<R: Rng, F: Float> NeuraTrainableLayerEval<DVector<F>> for NeuraDropoutLayer<R> {
+    type IntermediaryRepr = ();
+
+    fn eval_training(&self, input: &DVector<F>) -> (Self::Output, Self::IntermediaryRepr) {
+        (self.eval(input), ())
     }
 }
 
@@ -144,9 +147,7 @@ mod test {
             .unwrap();
 
         for _ in 0..100 {
-            <NeuraDropoutLayer<_> as NeuraTrainableLayerBase<DVector<f64>>>::prepare_layer(
-                &mut layer, true,
-            );
+            layer.prepare_layer(true);
             assert!(layer.multiplier.is_finite());
             assert!(!layer.multiplier.is_nan());
         }
