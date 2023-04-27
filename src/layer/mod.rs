@@ -71,6 +71,7 @@ pub trait NeuraTrainableLayerBase<Input>: NeuraLayer<Input> {
     /// Applies `δW_l` to the weights of the layer
     fn apply_gradient(&mut self, gradient: &Self::Gradient);
 
+    // TODO: move this into another trait
     fn eval_training(&self, input: &Input) -> (Self::Output, Self::IntermediaryRepr);
 
     /// Arbitrary computation that can be executed at the start of an epoch

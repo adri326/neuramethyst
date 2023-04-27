@@ -5,6 +5,9 @@ use crate::{
 // pub mod residual;
 pub mod sequential;
 
+mod traits;
+pub use traits::*;
+
 // TODO: extract regularize from this, so that we can drop the trait constraints on NeuraSequential's impl
 pub trait NeuraOldTrainableNetworkBase<Input>: NeuraLayer<Input> {
     type Gradient: NeuraVectorSpace;
