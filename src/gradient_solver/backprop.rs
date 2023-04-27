@@ -17,20 +17,23 @@ impl<Loss> NeuraBackprop<Loss> {
 impl<
         Input,
         Target,
-        Trainable: NeuraOldTrainableNetworkBase<Input>,
+        Trainable: NeuraTrainableLayerBase + NeuraLayer<Input> + NeuraNetworkRec,
         Loss: NeuraLoss<Trainable::Output, Target = Target> + Clone,
     > NeuraGradientSolver<Input, Target, Trainable> for NeuraBackprop<Loss>
 where
     <Loss as NeuraLoss<Trainable::Output>>::Output: ToPrimitive,
-    Trainable: for<'a> NeuraOldTrainableNetwork<Input, (&'a NeuraBackprop<Loss>, &'a Target)>,
+    // Trainable: NeuraOldTrainableNetworkBase<Input, Gradient = <Trainable as NeuraTrainableLayerBase>::Gradient>,
+    // Trainable: for<'a> NeuraOldTrainableNetwork<Input, (&'a NeuraBackprop<Loss>, &'a Target)>,
+    for<'a> (&'a NeuraBackprop<Loss>, &'a Target): BackpropRecurse<Input, Trainable, <Trainable as NeuraTrainableLayerBase>::Gradient>
 {
     fn get_gradient(
         &self,
         trainable: &Trainable,
         input: &Input,
         target: &Target,
-    ) -> Trainable::Gradient {
-        let (_, gradient) = trainable.traverse(input, &(self, target));
+    ) -> <Trainable as NeuraTrainableLayerBase>::Gradient {
+        let (_, gradient) = (self, target).recurse(trainable, input);
+        // let (_, gradient) = trainable.traverse(input, &(self, target));
 
         gradient
     }
@@ -119,14 +122,24 @@ where
     Network::NextNode: NeuraTrainableLayerEval<Network::NodeOutput>,
 {
     fn recurse(&self, network: &Network, input: &Input) -> (Input, Network::Gradient) {
+        let layer = network.get_layer();
+        // Get layer output
         let layer_input = network.map_input(input);
-        let (layer_output, layer_intermediary) =
-            network.get_layer().eval_training(layer_input.as_ref());
+        let (layer_output, layer_intermediary) = layer.eval_training(layer_input.as_ref());
         let output = network.map_output(input, &layer_output);
 
+        // Recurse
         let (epsilon_in, gradient_rec) = self.recurse(network.get_next(), output.as_ref());
 
-        todo!()
+        // Get layer outgoing gradient vector
+        let layer_epsilon_in = network.map_gradient_in(input, &epsilon_in);
+        let layer_epsilon_out = layer.backprop_layer(&layer_input, &layer_intermediary, &layer_epsilon_in);
+        let epsilon_out = network.map_gradient_out(input, &epsilon_in, &layer_epsilon_out);
+
+        // Get layer parameter gradient
+        let gradient = layer.get_gradient(&layer_input, &layer_intermediary, &layer_epsilon_in);
+
+        (epsilon_out.into_owned(), network.merge_gradient(gradient_rec, gradient))
     }
 }
 

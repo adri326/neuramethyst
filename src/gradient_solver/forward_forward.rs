@@ -30,17 +30,18 @@ impl<
         F,
         Act: Clone + NeuraDerivable<f64>,
         Input,
-        Trainable: NeuraOldTrainableNetwork<Input, NeuraForwardPair<Act>, Output = DVector<F>>,
+        Trainable: NeuraTrainableLayerBase,
     > NeuraGradientSolver<Input, bool, Trainable> for NeuraForwardForward<Act>
 where
     F: ToPrimitive,
+    Trainable: NeuraOldTrainableNetwork<Input, NeuraForwardPair<Act>, Output = DVector<F>, Gradient = <Trainable as NeuraTrainableLayerBase>::Gradient>
 {
     fn get_gradient(
         &self,
         trainable: &Trainable,
         input: &Input,
         target: &bool,
-    ) -> Trainable::Gradient {
+    ) -> <Trainable as NeuraTrainableLayerBase>::Gradient {
         let target = *target;
 
         trainable.traverse(

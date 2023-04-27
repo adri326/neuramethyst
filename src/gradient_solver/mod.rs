@@ -37,7 +37,7 @@ pub trait NeuraGradientSolverTransient<Input, Layer: NeuraTrainableLayerEval<Inp
     ) -> Self::Output<To, Gradient>;
 }
 
-pub trait NeuraGradientSolver<Input, Target, Trainable: NeuraOldTrainableNetworkBase<Input>> {
+pub trait NeuraGradientSolver<Input, Target, Trainable: NeuraTrainableLayerBase> {
     fn get_gradient(
         &self,
         trainable: &Trainable,

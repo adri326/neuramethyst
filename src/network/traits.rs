@@ -1,5 +1,7 @@
 use std::borrow::Cow;
 
+use crate::prelude::NeuraTrainableLayerBase;
+
 use super::*;
 
 /// This trait has to be non-generic, to ensure that no downstream crate can implement it for foreign types,
@@ -46,10 +48,17 @@ where
     ) -> Cow<'a, NodeInput>;
 }
 
-pub trait NeuraNetworkRec: NeuraNetworkBase {
+pub trait NeuraNetworkRec: NeuraNetworkBase + NeuraTrainableLayerBase {
     /// The type of the children network, it does not need to implement `NeuraNetworkBase`,
     /// although many functions will expect it to be either `()` or an implementation of `NeuraNetworkRec`.
-    type NextNode;
+    type NextNode: NeuraTrainableLayerBase;
 
     fn get_next(&self) -> &Self::NextNode;
+
+    fn merge_gradient(
+        &self,
+        rec_gradient: <Self::NextNode as NeuraTrainableLayerBase>::Gradient,
+        layer_gradient: <Self::Layer as NeuraTrainableLayerBase>::Gradient
+    ) -> Self::Gradient
+    where Self::Layer: NeuraTrainableLayerBase;
 }

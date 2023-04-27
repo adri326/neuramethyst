@@ -1,4 +1,4 @@
-use super::{NeuraOldTrainableNetwork, NeuraOldTrainableNetworkBase};
+use super::*;
 use crate::{
     gradient_solver::NeuraGradientSolverTransient,
     layer::{
@@ -174,6 +174,30 @@ impl<Layer> From<Layer> for NeuraSequential<Layer, ()> {
             layer,
             child_network: Box::new(()),
         }
+    }
+}
+
+impl<Layer, ChildNetwork> NeuraNetworkBase for NeuraSequential<Layer, ChildNetwork> {
+    type Layer = Layer;
+
+    fn get_layer(&self) -> &Self::Layer {
+        &self.layer
+    }
+}
+
+impl<Layer: NeuraTrainableLayerBase, ChildNetwork: NeuraTrainableLayerBase> NeuraNetworkRec for NeuraSequential<Layer, ChildNetwork> {
+    type NextNode = ChildNetwork;
+
+    fn get_next(&self) -> &Self::NextNode {
+        &self.child_network
+    }
+
+    fn merge_gradient(
+        &self,
+        rec_gradient: <Self::NextNode as NeuraTrainableLayerBase>::Gradient,
+        layer_gradient: <Self::Layer as NeuraTrainableLayerBase>::Gradient
+    ) -> Self::Gradient {
+        (rec_gradient, Box::new(layer_gradient))
     }
 }
 
