@@ -1,6 +1,6 @@
-use super::{NeuraTrainableNetwork, NeuraTrainableNetworkBase};
+use super::{NeuraOldTrainableNetwork, NeuraOldTrainableNetworkBase};
 use crate::{
-    gradient_solver::{NeuraGradientSolverFinal, NeuraGradientSolverTransient},
+    gradient_solver::{NeuraGradientSolverTransient},
     layer::{
         NeuraLayer, NeuraPartialLayer, NeuraShape, NeuraTrainableLayerBase, NeuraTrainableLayerSelf,
     },
@@ -82,8 +82,8 @@ impl<Layer, ChildNetwork> NeuraSequential<Layer, ChildNetwork> {
 impl<
         Input,
         Layer: NeuraTrainableLayerBase<Input> + NeuraTrainableLayerSelf<Input>,
-        ChildNetwork: NeuraTrainableNetworkBase<Layer::Output>,
-    > NeuraTrainableNetworkBase<Input> for NeuraSequential<Layer, ChildNetwork>
+        ChildNetwork: NeuraOldTrainableNetworkBase<Layer::Output>,
+    > NeuraOldTrainableNetworkBase<Input> for NeuraSequential<Layer, ChildNetwork>
 {
     type Gradient = (Layer::Gradient, Box<ChildNetwork::Gradient>);
     type LayerOutput = Layer::Output;
@@ -114,7 +114,7 @@ impl<
 }
 
 /// A dummy implementation of `NeuraTrainableNetwork`, which simply calls `loss.eval` in `backpropagate`.
-impl<Input: Clone> NeuraTrainableNetworkBase<Input> for () {
+impl<Input: Clone> NeuraOldTrainableNetworkBase<Input> for () {
     type Gradient = ();
     type LayerOutput = Input;
 
@@ -143,10 +143,10 @@ impl<
         Input,
         Layer: NeuraTrainableLayerBase<Input> + NeuraTrainableLayerSelf<Input>,
         Optimizer: NeuraGradientSolverTransient<Input, Layer>,
-        ChildNetwork: NeuraTrainableNetworkBase<Layer::Output>,
-    > NeuraTrainableNetwork<Input, Optimizer> for NeuraSequential<Layer, ChildNetwork>
+        ChildNetwork: NeuraOldTrainableNetworkBase<Layer::Output>,
+    > NeuraOldTrainableNetwork<Input, Optimizer> for NeuraSequential<Layer, ChildNetwork>
 where
-    ChildNetwork: NeuraTrainableNetwork<Layer::Output, Optimizer>,
+    ChildNetwork: NeuraOldTrainableNetwork<Layer::Output, Optimizer>,
 {
     fn traverse(
         &self,

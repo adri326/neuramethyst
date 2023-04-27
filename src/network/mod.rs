@@ -2,11 +2,11 @@ use crate::{
     algebra::NeuraVectorSpace, gradient_solver::{NeuraGradientSolverBase, NeuraGradientSolverFinal}, layer::NeuraLayer,
 };
 
-pub mod residual;
+// pub mod residual;
 pub mod sequential;
 
 // TODO: extract regularize from this, so that we can drop the trait constraints on NeuraSequential's impl
-pub trait NeuraTrainableNetworkBase<Input>: NeuraLayer<Input> {
+pub trait NeuraOldTrainableNetworkBase<Input>: NeuraLayer<Input> {
     type Gradient: NeuraVectorSpace;
     type LayerOutput;
 
@@ -21,7 +21,7 @@ pub trait NeuraTrainableNetworkBase<Input>: NeuraLayer<Input> {
     fn prepare(&mut self, train_iteration: bool);
 }
 
-pub trait NeuraTrainableNetwork<Input, Optimizer>: NeuraTrainableNetworkBase<Input>
+pub trait NeuraOldTrainableNetwork<Input, Optimizer>: NeuraOldTrainableNetworkBase<Input>
 where
     Optimizer: NeuraGradientSolverBase,
 {
@@ -33,7 +33,7 @@ where
 }
 
 impl<Input: Clone, Optimizer: NeuraGradientSolverFinal<Input>>
-    NeuraTrainableNetwork<Input, Optimizer> for ()
+    NeuraOldTrainableNetwork<Input, Optimizer> for ()
 {
     fn traverse(
         &self,

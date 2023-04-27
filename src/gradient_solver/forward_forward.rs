@@ -30,7 +30,7 @@ impl<
         F,
         Act: Clone + NeuraDerivable<f64>,
         Input,
-        Trainable: NeuraTrainableNetwork<Input, NeuraForwardPair<Act>, Output = DVector<F>>,
+        Trainable: NeuraOldTrainableNetwork<Input, NeuraForwardPair<Act>, Output = DVector<F>>,
     > NeuraGradientSolver<Input, bool, Trainable> for NeuraForwardForward<Act>
 where
     F: ToPrimitive,
@@ -138,7 +138,7 @@ impl<
     fn map_epsilon<From, To, Gradient, Cb: Fn(From) -> To>(
         &self,
         rec_opt_output: Self::Output<From, Gradient>,
-        callback: Cb
+        _callback: Cb
     ) -> Self::Output<To, Gradient> {
         rec_opt_output
     }

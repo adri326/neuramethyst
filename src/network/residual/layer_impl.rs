@@ -174,15 +174,24 @@ where
         let child_result = self.child_network.traverse(&rest, optimizer);
         // TODO: maybe move this to a custom impl of NeuraGradientSolverTransient for NeuraResidualInput?
         // Or have a different set of traits for NeuraTrainableNetwork specific to NeuraResidualNodes
-        let child_result = optimizer.map_epsilon(child_result, |epsilon| {
+        let child_result = optimizer.map_epsilon(child_result, |_epsilon| {
             // Pop the first value from `epsilon`, then:
             // - compute its sum
             // - use it to compute the outcoming epsilon of the current layer
             // - split the oucoming epsilon into its original components, and push those back onto the rest
             // At this point, the value for `epsilon` in the gradient solver's state should be ready for another iteration,
             // with the first value containing the unsummed incoming epsilon values from the downstream layers
-            todo!();
+            todo!()
         });
+
+        optimizer.eval_layer(
+            &self.layer,
+            &layer_input,
+            &layer_output,
+            &layer_intermediary,
+            child_result,
+            |this_gradient, child_gradient| (this_gradient, Box::new(child_gradient))
+        );
 
         todo!();
     }

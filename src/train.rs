@@ -1,6 +1,6 @@
 use crate::{
     algebra::NeuraVectorSpace, gradient_solver::NeuraGradientSolver,
-    network::NeuraTrainableNetworkBase,
+    network::NeuraOldTrainableNetworkBase,
 };
 
 #[non_exhaustive]
@@ -73,7 +73,7 @@ impl NeuraBatchedTrainer {
     pub fn train<
         Input: Clone,
         Target: Clone,
-        Network: NeuraTrainableNetworkBase<Input>,
+        Network: NeuraOldTrainableNetworkBase<Input>,
         GradientSolver: NeuraGradientSolver<Input, Target, Network>,
         Inputs: IntoIterator<Item = (Input, Target)>,
     >(
@@ -84,7 +84,7 @@ impl NeuraBatchedTrainer {
         test_inputs: &[(Input, Target)],
     ) -> Vec<(f64, f64)>
     where
-        <Network as NeuraTrainableNetworkBase<Input>>::Gradient: std::fmt::Debug,
+        <Network as NeuraOldTrainableNetworkBase<Input>>::Gradient: std::fmt::Debug,
     {
         let mut losses = Vec::new();
         let mut iter = inputs.into_iter();

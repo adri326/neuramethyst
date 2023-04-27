@@ -2,7 +2,7 @@ use num::ToPrimitive;
 
 use crate::{
     derivable::NeuraLoss, layer::NeuraTrainableLayerBackprop, layer::NeuraTrainableLayerSelf,
-    network::NeuraTrainableNetworkBase,
+    network::NeuraOldTrainableNetworkBase,
 };
 
 use super::*;
@@ -20,12 +20,12 @@ impl<Loss> NeuraBackprop<Loss> {
 impl<
         Input,
         Target,
-        Trainable: NeuraTrainableNetworkBase<Input>,
+        Trainable: NeuraOldTrainableNetworkBase<Input>,
         Loss: NeuraLoss<Trainable::Output, Target = Target> + Clone,
     > NeuraGradientSolver<Input, Target, Trainable> for NeuraBackprop<Loss>
 where
     <Loss as NeuraLoss<Trainable::Output>>::Output: ToPrimitive,
-    Trainable: for<'a> NeuraTrainableNetwork<Input, (&'a NeuraBackprop<Loss>, &'a Target)>,
+    Trainable: for<'a> NeuraOldTrainableNetwork<Input, (&'a NeuraBackprop<Loss>, &'a Target)>,
 {
     fn get_gradient(
         &self,

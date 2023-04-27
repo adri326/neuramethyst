@@ -6,7 +6,7 @@ pub use forward_forward::NeuraForwardForward;
 
 use crate::{
     layer::NeuraTrainableLayerBase,
-    network::{NeuraTrainableNetwork, NeuraTrainableNetworkBase},
+    network::{NeuraOldTrainableNetwork, NeuraOldTrainableNetworkBase},
 };
 
 pub trait NeuraGradientSolverBase {
@@ -37,7 +37,7 @@ pub trait NeuraGradientSolverTransient<Input, Layer: NeuraTrainableLayerBase<Inp
     ) -> Self::Output<To, Gradient>;
 }
 
-pub trait NeuraGradientSolver<Input, Target, Trainable: NeuraTrainableNetworkBase<Input>> {
+pub trait NeuraGradientSolver<Input, Target, Trainable: NeuraOldTrainableNetworkBase<Input>> {
     fn get_gradient(
         &self,
         trainable: &Trainable,
