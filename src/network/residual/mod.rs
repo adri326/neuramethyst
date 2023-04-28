@@ -7,6 +7,9 @@ use crate::layer::*;
 
 mod layer_impl;
 
+mod wrapper;
+pub use wrapper::*;
+
 mod input;
 pub use input::*;
 
@@ -15,15 +18,6 @@ pub use axis::*;
 
 mod construct;
 pub use construct::NeuraResidualConstructErr;
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct NeuraResidual<Layers> {
-    /// Instance of NeuraResidualNode
-    layers: Layers,
-
-    /// Array of which layers to send the input to, defaults to `vec![0]`
-    initial_offsets: Vec<usize>,
-}
 
 impl<Layers> NeuraResidual<Layers> {
     pub fn new(layers: Layers) -> Self {

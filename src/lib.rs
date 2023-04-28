@@ -1,8 +1,3 @@
-#![feature(generic_arg_infer)]
-// #![feature(generic_const_exprs)]
-#![feature(associated_type_defaults)]
-#![feature(arc_unwrap_or_clone)]
-
 pub mod algebra;
 pub mod derivable;
 pub mod gradient_solver;
@@ -20,7 +15,7 @@ pub use utils::{argmax, cycle_shuffling, one_hot, plot_losses};
 /// so there should not be any conflicts when doing a wildcard import of `prelude`.
 pub mod prelude {
     // Macros
-    pub use crate::{neura_layer, neura_sequential};
+    pub use crate::{neura_layer, neura_residual, neura_sequential};
 
     // Structs and traits
     pub use crate::gradient_solver::NeuraBackprop;

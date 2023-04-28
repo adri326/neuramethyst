@@ -1,4 +1,4 @@
-// pub mod residual;
+pub mod residual;
 pub mod sequential;
 
 mod traits;

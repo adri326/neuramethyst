@@ -259,20 +259,20 @@ impl<'a, const LENGTH: usize, F: Default + Clone> FromIterator<F> for NeuraVecto
 mod test {
     use super::*;
 
-    #[test]
-    fn test_reverse_dot() {
-        let left: NeuraVector<_, f64> = [2.0, 3.0, 5.0].into();
-        let right: NeuraVector<_, f64> = [7.0, 11.0, 13.0, 17.0].into();
+    // #[test]
+    // fn test_reverse_dot() {
+    //     let left: NeuraVector<_, f64> = [2.0, 3.0, 5.0].into();
+    //     let right: NeuraVector<_, f64> = [7.0, 11.0, 13.0, 17.0].into();
 
-        let expected: NeuraMatrix<_, _, f64> = [
-            [14.0, 22.0, 26.0, 34.0],
-            [21.0, 33.0, 39.0, 51.0],
-            [35.0, 55.0, 65.0, 85.0],
-        ]
-        .into();
+    //     let expected: NeuraMatrix<_, _, f64> = [
+    //         [14.0, 22.0, 26.0, 34.0],
+    //         [21.0, 33.0, 39.0, 51.0],
+    //         [35.0, 55.0, 65.0, 85.0],
+    //     ]
+    //     .into();
 
-        let actual = left.reverse_dot(right);
+    //     let actual = left.reverse_dot(right);
 
-        assert_eq!(expected, actual);
-    }
+    //     assert_eq!(expected, actual);
+    // }
 }

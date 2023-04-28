@@ -21,3 +21,6 @@ viuer = "0.6.2"
 rust-mnist = "0.2.0"
 serde_json = "1.0.96"
 approx = "0.5.1"
+
+[profile.release]
+debug = true
