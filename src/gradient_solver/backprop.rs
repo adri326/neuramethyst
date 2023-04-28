@@ -45,51 +45,6 @@ where
     }
 }
 
-impl<Loss, Target> NeuraGradientSolverBase for (&NeuraBackprop<Loss>, &Target) {
-    type Output<NetworkInput, NetworkGradient> = (NetworkInput, NetworkGradient); // epsilon, gradient
-}
-
-impl<LayerOutput, Target, Loss: NeuraLoss<LayerOutput, Target = Target>>
-    NeuraGradientSolverFinal<LayerOutput> for (&NeuraBackprop<Loss>, &Target)
-{
-    fn eval_final(&self, output: LayerOutput) -> Self::Output<LayerOutput, ()> {
-        (self.0.loss.nabla(self.1, &output), ())
-    }
-}
-
-impl<
-        Input,
-        Target,
-        Loss,
-        Layer: NeuraTrainableLayerBackprop<Input> + NeuraTrainableLayerSelf<Input>,
-    > NeuraGradientSolverTransient<Input, Layer> for (&NeuraBackprop<Loss>, &Target)
-{
-    fn eval_layer<NetworkGradient, RecGradient>(
-        &self,
-        layer: &Layer,
-        input: &Input,
-        _output: &Layer::Output,
-        intermediary: &Layer::IntermediaryRepr,
-        rec_opt_output: Self::Output<Layer::Output, RecGradient>,
-        combine_gradients: impl Fn(Layer::Gradient, RecGradient) -> NetworkGradient,
-    ) -> Self::Output<Input, NetworkGradient> {
-        let (epsilon_in, rec_gradient) = rec_opt_output;
-
-        let epsilon_out = layer.backprop_layer(input, intermediary, &epsilon_in);
-        let layer_gradient = layer.get_gradient(input, intermediary, &epsilon_in);
-
-        (epsilon_out, combine_gradients(layer_gradient, rec_gradient))
-    }
-
-    fn map_epsilon<From, To, Gradient, Cb: Fn(From) -> To>(
-        &self,
-        rec_opt_output: Self::Output<From, Gradient>,
-        callback: Cb,
-    ) -> Self::Output<To, Gradient> {
-        (callback(rec_opt_output.0), rec_opt_output.1)
-    }
-}
-
 trait BackpropRecurse<Input, Network, Gradient> {
     fn recurse(&self, network: &Network, input: &Input) -> (Input, Gradient);
 }

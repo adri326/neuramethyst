@@ -1,5 +1,5 @@
 use nalgebra::{DVector, Scalar};
-use num::{traits::NumAssignOps, Float, ToPrimitive};
+use num::{traits::NumAssignOps, Float};
 
 use crate::{
     derivable::NeuraDerivable,
@@ -65,16 +65,13 @@ struct NeuraForwardPair<Act> {
     activation: Act,
 }
 
-impl<F, Act: Clone + NeuraDerivable<f64>, Input: Clone, Trainable: NeuraTrainableLayerBase>
-    NeuraGradientSolver<Input, bool, Trainable> for NeuraForwardForward<Act>
+impl<
+        F: Float,
+        Act: Clone + NeuraDerivable<f64>,
+        Input: Clone,
+        Trainable: NeuraTrainableLayerBase + NeuraLayer<Input, Output = DVector<F>>,
+    > NeuraGradientSolver<Input, bool, Trainable> for NeuraForwardForward<Act>
 where
-    F: ToPrimitive,
-    Trainable: NeuraOldTrainableNetwork<
-        Input,
-        NeuraForwardPair<Act>,
-        Output = DVector<F>,
-        Gradient = <Trainable as NeuraTrainableLayerBase>::Gradient,
-    >,
     NeuraForwardPair<Act>:
         ForwardForwardRecurse<Input, Trainable, <Trainable as NeuraTrainableLayerBase>::Gradient>,
 {
@@ -123,70 +120,6 @@ where
         } else {
             goodness
         }
-    }
-}
-
-impl<Act> NeuraGradientSolverBase for NeuraForwardPair<Act> {
-    type Output<NetworkInput, NetworkGradient> = NetworkGradient;
-}
-
-impl<Act, LayerOutput> NeuraGradientSolverFinal<LayerOutput> for NeuraForwardPair<Act> {
-    fn eval_final(&self, _output: LayerOutput) -> Self::Output<LayerOutput, ()> {
-        ()
-    }
-}
-
-impl<
-        F: Float + Scalar + NumAssignOps,
-        Act: NeuraDerivable<F>,
-        Input,
-        Layer: NeuraTrainableLayerSelf<Input, Output = DVector<F>>,
-    > NeuraGradientSolverTransient<Input, Layer> for NeuraForwardPair<Act>
-{
-    fn eval_layer<NetworkGradient, RecGradient>(
-        &self,
-        layer: &Layer,
-        input: &Input,
-        output: &Layer::Output,
-        intermediary: &Layer::IntermediaryRepr,
-        rec_gradient: RecGradient,
-        combine_gradients: impl Fn(Layer::Gradient, RecGradient) -> NetworkGradient,
-    ) -> Self::Output<Input, NetworkGradient> {
-        // let output = layer.eval(input);
-        let goodness = output
-            .iter()
-            .copied()
-            .reduce(|acc, x| acc + x * x)
-            .unwrap_or(F::zero());
-        let goodness = if self.maximize {
-            goodness - F::from(self.threshold).unwrap()
-        } else {
-            F::from(self.threshold).unwrap() - goodness
-        };
-        // We skip self.activation.eval(goodness)
-
-        let two = F::from(2.0).unwrap();
-
-        // The original formula does not have a 1/2 term,
-        // so we must multiply by 2
-        let mut goodness_derivative = output * (two * self.activation.derivate(goodness));
-
-        if self.maximize {
-            goodness_derivative = -goodness_derivative;
-        }
-
-        // TODO: split backprop_layer into eval_training, get_gradient and get_backprop
-        let layer_gradient = layer.get_gradient(input, intermediary, &goodness_derivative);
-
-        combine_gradients(layer_gradient, rec_gradient)
-    }
-
-    fn map_epsilon<From, To, Gradient, Cb: Fn(From) -> To>(
-        &self,
-        rec_opt_output: Self::Output<From, Gradient>,
-        _callback: Cb,
-    ) -> Self::Output<To, Gradient> {
-        rec_opt_output
     }
 }
 

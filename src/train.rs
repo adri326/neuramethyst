@@ -1,7 +1,4 @@
-use crate::{
-    algebra::NeuraVectorSpace, gradient_solver::NeuraGradientSolver, layer::*,
-    network::NeuraOldTrainableNetworkBase,
-};
+use crate::{algebra::NeuraVectorSpace, gradient_solver::NeuraGradientSolver, layer::*};
 
 #[non_exhaustive]
 pub struct NeuraBatchedTrainer {

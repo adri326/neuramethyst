@@ -1,8 +1,6 @@
 use std::borrow::Cow;
 
-use crate::prelude::NeuraTrainableLayerBase;
-
-use super::*;
+use crate::layer::*;
 
 /// This trait has to be non-generic, to ensure that no downstream crate can implement it for foreign types,
 /// as that would otherwise cause infinite recursion when dealing with `NeuraNetworkRec`.

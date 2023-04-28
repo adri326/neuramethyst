@@ -1,12 +1,9 @@
 use std::borrow::Cow;
 
 use super::*;
-use crate::{
-    gradient_solver::NeuraGradientSolverTransient,
-    layer::{
-        NeuraLayer, NeuraPartialLayer, NeuraShape, NeuraTrainableLayerBase,
-        NeuraTrainableLayerEval, NeuraTrainableLayerSelf,
-    },
+use crate::layer::{
+    NeuraLayer, NeuraPartialLayer, NeuraShape, NeuraTrainableLayerBase, NeuraTrainableLayerEval,
+    NeuraTrainableLayerSelf,
 };
 
 mod construct;
@@ -79,94 +76,6 @@ impl<Layer, ChildNetwork> NeuraSequential<Layer, ChildNetwork> {
             layer: layer,
             child_network: Box::new(self),
         }
-    }
-}
-
-impl<
-        Input,
-        Layer: NeuraTrainableLayerEval<Input> + NeuraTrainableLayerSelf<Input>,
-        ChildNetwork: NeuraOldTrainableNetworkBase<Layer::Output>,
-    > NeuraOldTrainableNetworkBase<Input> for NeuraSequential<Layer, ChildNetwork>
-{
-    type Gradient = (Layer::Gradient, Box<ChildNetwork::Gradient>);
-    type LayerOutput = Layer::Output;
-
-    fn default_gradient(&self) -> Self::Gradient {
-        (
-            self.layer.default_gradient(),
-            Box::new(self.child_network.default_gradient()),
-        )
-    }
-
-    fn apply_gradient(&mut self, gradient: &Self::Gradient) {
-        self.layer.apply_gradient(&gradient.0);
-        self.child_network.apply_gradient(&gradient.1);
-    }
-
-    fn regularize(&self) -> Self::Gradient {
-        (
-            self.layer.regularize_layer(),
-            Box::new(self.child_network.regularize()),
-        )
-    }
-
-    fn prepare(&mut self, is_training: bool) {
-        self.layer.prepare_layer(is_training);
-        self.child_network.prepare(is_training);
-    }
-}
-
-/// A dummy implementation of `NeuraTrainableNetwork`, which simply calls `loss.eval` in `backpropagate`.
-impl<Input: Clone> NeuraOldTrainableNetworkBase<Input> for () {
-    type Gradient = ();
-    type LayerOutput = Input;
-
-    #[inline(always)]
-    fn default_gradient(&self) -> () {
-        ()
-    }
-
-    #[inline(always)]
-    fn apply_gradient(&mut self, _gradient: &()) {
-        // Noop
-    }
-
-    #[inline(always)]
-    fn regularize(&self) -> () {
-        ()
-    }
-
-    #[inline(always)]
-    fn prepare(&mut self, _is_training: bool) {
-        // Noop
-    }
-}
-
-impl<
-        Input,
-        Layer: NeuraTrainableLayerEval<Input> + NeuraTrainableLayerSelf<Input>,
-        Optimizer: NeuraGradientSolverTransient<Input, Layer>,
-        ChildNetwork: NeuraOldTrainableNetworkBase<Layer::Output>,
-    > NeuraOldTrainableNetwork<Input, Optimizer> for NeuraSequential<Layer, ChildNetwork>
-where
-    ChildNetwork: NeuraOldTrainableNetwork<Layer::Output, Optimizer>,
-{
-    fn traverse(
-        &self,
-        input: &Input,
-        optimizer: &Optimizer,
-    ) -> Optimizer::Output<Input, Self::Gradient> {
-        let (next_activation, intermediary) = self.layer.eval_training(input);
-        let child_result = self.child_network.traverse(&next_activation, optimizer);
-
-        optimizer.eval_layer(
-            &self.layer,
-            input,
-            &next_activation,
-            &intermediary,
-            child_result,
-            |layer_gradient, child_gradient| (layer_gradient, Box::new(child_gradient)),
-        )
     }
 }
 
