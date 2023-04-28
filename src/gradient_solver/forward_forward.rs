@@ -1,7 +1,12 @@
 use nalgebra::{DVector, Scalar};
 use num::{traits::NumAssignOps, Float, ToPrimitive};
 
-use crate::{derivable::NeuraDerivable, layer::NeuraTrainableLayerSelf};
+use crate::{
+    derivable::NeuraDerivable,
+    layer::NeuraTrainableLayerSelf,
+    network::{NeuraNetwork, NeuraNetworkRec},
+    prelude::NeuraLayer,
+};
 
 use super::*;
 
@@ -20,21 +25,58 @@ impl<Act: Clone + NeuraDerivable<f64>> NeuraForwardForward<Act> {
     }
 }
 
+trait ForwardForwardDerivate<Data> {
+    fn derivate_goodness(&self, data: &Data) -> Data;
+}
+
+impl<F: Float + Scalar + NumAssignOps, Act: NeuraDerivable<F>> ForwardForwardDerivate<DVector<F>>
+    for NeuraForwardPair<Act>
+{
+    fn derivate_goodness(&self, data: &DVector<F>) -> DVector<F> {
+        let goodness = data
+            .iter()
+            .copied()
+            .reduce(|acc, x| acc + x * x)
+            .unwrap_or(F::zero());
+        let goodness = if self.maximize {
+            goodness - F::from(self.threshold).unwrap()
+        } else {
+            F::from(self.threshold).unwrap() - goodness
+        };
+        // We skip self.activation.eval(goodness)
+
+        let two = F::from(2.0).unwrap();
+
+        // The original formula does not have a 1/2 term,
+        // so we must multiply by 2
+        let mut goodness_derivative = data * (two * self.activation.derivate(goodness));
+
+        if self.maximize {
+            goodness_derivative = -goodness_derivative;
+        }
+
+        goodness_derivative
+    }
+}
+
 struct NeuraForwardPair<Act> {
     threshold: f64,
     maximize: bool,
     activation: Act,
 }
 
-impl<
-        F,
-        Act: Clone + NeuraDerivable<f64>,
-        Input,
-        Trainable: NeuraTrainableLayerBase,
-    > NeuraGradientSolver<Input, bool, Trainable> for NeuraForwardForward<Act>
+impl<F, Act: Clone + NeuraDerivable<f64>, Input: Clone, Trainable: NeuraTrainableLayerBase>
+    NeuraGradientSolver<Input, bool, Trainable> for NeuraForwardForward<Act>
 where
     F: ToPrimitive,
-    Trainable: NeuraOldTrainableNetwork<Input, NeuraForwardPair<Act>, Output = DVector<F>, Gradient = <Trainable as NeuraTrainableLayerBase>::Gradient>
+    Trainable: NeuraOldTrainableNetwork<
+        Input,
+        NeuraForwardPair<Act>,
+        Output = DVector<F>,
+        Gradient = <Trainable as NeuraTrainableLayerBase>::Gradient,
+    >,
+    NeuraForwardPair<Act>:
+        ForwardForwardRecurse<Input, Trainable, <Trainable as NeuraTrainableLayerBase>::Gradient>,
 {
     fn get_gradient(
         &self,
@@ -43,15 +85,18 @@ where
         target: &bool,
     ) -> <Trainable as NeuraTrainableLayerBase>::Gradient {
         let target = *target;
+        let pair = NeuraForwardPair {
+            threshold: self.threshold,
+            maximize: target,
+            activation: self.activation.clone(),
+        };
 
-        trainable.traverse(
-            input,
-            &NeuraForwardPair {
-                threshold: self.threshold,
-                maximize: target,
-                activation: self.activation.clone(),
-            },
-        )
+        // trainable.traverse(
+        //     input,
+        //     &pair,
+        // )
+
+        pair.recurse(trainable, input)
     }
 
     fn score(&self, trainable: &Trainable, input: &Input, target: &bool) -> f64 {
@@ -142,6 +187,43 @@ impl<
         _callback: Cb,
     ) -> Self::Output<To, Gradient> {
         rec_opt_output
+    }
+}
+
+trait ForwardForwardRecurse<Input, Network, Gradient> {
+    fn recurse(&self, network: &Network, input: &Input) -> Gradient;
+}
+
+impl<Act, Input> ForwardForwardRecurse<Input, (), ()> for NeuraForwardPair<Act> {
+    #[inline(always)]
+    fn recurse(&self, _network: &(), _input: &Input) -> () {
+        ()
+    }
+}
+
+impl<Act, Input: Clone, Network: NeuraNetwork<Input> + NeuraNetworkRec>
+    ForwardForwardRecurse<Input, Network, Network::Gradient> for NeuraForwardPair<Act>
+where
+    Network::Layer: NeuraTrainableLayerSelf<Network::LayerInput>,
+    <Network::Layer as NeuraLayer<Network::LayerInput>>::Output: Clone,
+    Self: ForwardForwardDerivate<<Network::Layer as NeuraLayer<Network::LayerInput>>::Output>,
+    Self: ForwardForwardRecurse<
+        Network::NodeOutput,
+        Network::NextNode,
+        <Network::NextNode as NeuraTrainableLayerBase>::Gradient,
+    >,
+{
+    fn recurse(&self, network: &Network, input: &Input) -> Network::Gradient {
+        let layer = network.get_layer();
+        let layer_input = network.map_input(input);
+        let (layer_output, layer_intermediary) = layer.eval_training(&layer_input);
+        let output = network.map_output(input, &layer_output);
+
+        let derivative = self.derivate_goodness(&layer_output);
+
+        let layer_gradient = layer.get_gradient(&layer_input, &layer_intermediary, &derivative);
+
+        network.merge_gradient(self.recurse(network.get_next(), &output), layer_gradient)
     }
 }
 

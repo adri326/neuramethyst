@@ -1,5 +1,5 @@
 use crate::{
-    algebra::NeuraVectorSpace, gradient_solver::NeuraGradientSolver,
+    algebra::NeuraVectorSpace, gradient_solver::NeuraGradientSolver, layer::*,
     network::NeuraOldTrainableNetworkBase,
 };
 
@@ -73,7 +73,7 @@ impl NeuraBatchedTrainer {
     pub fn train<
         Input: Clone,
         Target: Clone,
-        Network: NeuraOldTrainableNetworkBase<Input>,
+        Network: NeuraTrainableLayerBase + NeuraTrainableLayerSelf<Input>,
         GradientSolver: NeuraGradientSolver<Input, Target, Network>,
         Inputs: IntoIterator<Item = (Input, Target)>,
     >(
@@ -84,7 +84,7 @@ impl NeuraBatchedTrainer {
         test_inputs: &[(Input, Target)],
     ) -> Vec<(f64, f64)>
     where
-        <Network as NeuraOldTrainableNetworkBase<Input>>::Gradient: std::fmt::Debug,
+        Network::Gradient: std::fmt::Debug,
     {
         let mut losses = Vec::new();
         let mut iter = inputs.into_iter();
@@ -97,7 +97,7 @@ impl NeuraBatchedTrainer {
         let mut train_loss = 0.0;
         'd: for iteration in 0..self.iterations {
             let mut gradient_sum = network.default_gradient();
-            network.prepare(true);
+            network.prepare_layer(true);
 
             for _ in 0..self.batch_size {
                 if let Some((input, target)) = iter.next() {
@@ -113,7 +113,7 @@ impl NeuraBatchedTrainer {
             gradient_sum.mul_assign(factor);
 
             // Add regularization gradient
-            let mut reg_gradient = Box::new(network.regularize());
+            let mut reg_gradient = network.regularize_layer();
             reg_gradient.mul_assign(reg_factor);
             gradient_sum.add_assign(&reg_gradient);
 
@@ -126,7 +126,7 @@ impl NeuraBatchedTrainer {
             }
 
             if self.log_iterations > 0 && (iteration + 1) % self.log_iterations == 0 {
-                network.prepare(false);
+                network.prepare_layer(false);
                 let mut val_loss = 0.0;
                 for (input, target) in test_inputs {
                     val_loss += gradient_solver.score(&network, input, target);
@@ -145,7 +145,7 @@ impl NeuraBatchedTrainer {
             }
         }
 
-        network.prepare(false);
+        network.prepare_layer(false);
 
         losses
     }

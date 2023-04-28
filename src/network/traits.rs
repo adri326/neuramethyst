@@ -58,7 +58,8 @@ pub trait NeuraNetworkRec: NeuraNetworkBase + NeuraTrainableLayerBase {
     fn merge_gradient(
         &self,
         rec_gradient: <Self::NextNode as NeuraTrainableLayerBase>::Gradient,
-        layer_gradient: <Self::Layer as NeuraTrainableLayerBase>::Gradient
+        layer_gradient: <Self::Layer as NeuraTrainableLayerBase>::Gradient,
     ) -> Self::Gradient
-    where Self::Layer: NeuraTrainableLayerBase;
+    where
+        Self::Layer: NeuraTrainableLayerBase;
 }

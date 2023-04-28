@@ -162,6 +162,33 @@ impl<Input: Clone> NeuraTrainableLayerEval<Input> for () {
     }
 }
 
+impl<Input: Clone> NeuraTrainableLayerSelf<Input> for () {
+    #[inline(always)]
+    fn regularize_layer(&self) -> Self::Gradient {
+        ()
+    }
+
+    #[inline(always)]
+    fn get_gradient(
+        &self,
+        _input: &Input,
+        _intermediary: &Self::IntermediaryRepr,
+        _epsilon: &Self::Output,
+    ) -> Self::Gradient {
+        ()
+    }
+}
+
+impl<Input: Clone> NeuraTrainableLayerBackprop<Input> for () {
+    fn backprop_layer(
+        &self,
+        _input: &Input,
+        _intermediary: &Self::IntermediaryRepr,
+        epsilon: &Self::Output,
+    ) -> Input {
+        epsilon.clone()
+    }
+}
 /// Temporary implementation of neura_layer
 #[macro_export]
 macro_rules! neura_layer {

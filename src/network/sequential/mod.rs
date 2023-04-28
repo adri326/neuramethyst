@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use super::*;
 use crate::{
     gradient_solver::NeuraGradientSolverTransient,
@@ -185,7 +187,9 @@ impl<Layer, ChildNetwork> NeuraNetworkBase for NeuraSequential<Layer, ChildNetwo
     }
 }
 
-impl<Layer: NeuraTrainableLayerBase, ChildNetwork: NeuraTrainableLayerBase> NeuraNetworkRec for NeuraSequential<Layer, ChildNetwork> {
+impl<Layer: NeuraTrainableLayerBase, ChildNetwork: NeuraTrainableLayerBase> NeuraNetworkRec
+    for NeuraSequential<Layer, ChildNetwork>
+{
     type NextNode = ChildNetwork;
 
     fn get_next(&self) -> &Self::NextNode {
@@ -195,9 +199,47 @@ impl<Layer: NeuraTrainableLayerBase, ChildNetwork: NeuraTrainableLayerBase> Neur
     fn merge_gradient(
         &self,
         rec_gradient: <Self::NextNode as NeuraTrainableLayerBase>::Gradient,
-        layer_gradient: <Self::Layer as NeuraTrainableLayerBase>::Gradient
+        layer_gradient: <Self::Layer as NeuraTrainableLayerBase>::Gradient,
     ) -> Self::Gradient {
-        (rec_gradient, Box::new(layer_gradient))
+        (layer_gradient, Box::new(rec_gradient))
+    }
+}
+
+impl<Input: Clone, Layer: NeuraTrainableLayerEval<Input>, ChildNetwork> NeuraNetwork<Input>
+    for NeuraSequential<Layer, ChildNetwork>
+where
+    Layer::Output: Clone,
+{
+    type LayerInput = Input;
+    type NodeOutput = Layer::Output;
+
+    fn map_input<'a>(&'_ self, input: &'a Input) -> Cow<'a, Input> {
+        Cow::Borrowed(input)
+    }
+
+    fn map_output<'a>(
+        &'_ self,
+        _input: &'_ Input,
+        layer_output: &'a <Self::Layer as NeuraLayer<Input>>::Output,
+    ) -> Cow<'a, Self::NodeOutput> {
+        Cow::Borrowed(layer_output)
+    }
+
+    fn map_gradient_in<'a>(
+        &'_ self,
+        _input: &'_ Input,
+        gradient_in: &'a Self::NodeOutput,
+    ) -> Cow<'a, <Self::Layer as NeuraLayer<Input>>::Output> {
+        Cow::Borrowed(gradient_in)
+    }
+
+    fn map_gradient_out<'a>(
+        &'_ self,
+        _input: &'_ Input,
+        _gradient_in: &'_ Self::NodeOutput,
+        gradient_out: &'a Self::LayerInput,
+    ) -> Cow<'a, Input> {
+        Cow::Borrowed(gradient_out)
     }
 }
 

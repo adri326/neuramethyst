@@ -24,7 +24,8 @@ where
     <Loss as NeuraLoss<Trainable::Output>>::Output: ToPrimitive,
     // Trainable: NeuraOldTrainableNetworkBase<Input, Gradient = <Trainable as NeuraTrainableLayerBase>::Gradient>,
     // Trainable: for<'a> NeuraOldTrainableNetwork<Input, (&'a NeuraBackprop<Loss>, &'a Target)>,
-    for<'a> (&'a NeuraBackprop<Loss>, &'a Target): BackpropRecurse<Input, Trainable, <Trainable as NeuraTrainableLayerBase>::Gradient>
+    for<'a> (&'a NeuraBackprop<Loss>, &'a Target):
+        BackpropRecurse<Input, Trainable, <Trainable as NeuraTrainableLayerBase>::Gradient>,
 {
     fn get_gradient(
         &self,
@@ -133,13 +134,17 @@ where
 
         // Get layer outgoing gradient vector
         let layer_epsilon_in = network.map_gradient_in(input, &epsilon_in);
-        let layer_epsilon_out = layer.backprop_layer(&layer_input, &layer_intermediary, &layer_epsilon_in);
+        let layer_epsilon_out =
+            layer.backprop_layer(&layer_input, &layer_intermediary, &layer_epsilon_in);
         let epsilon_out = network.map_gradient_out(input, &epsilon_in, &layer_epsilon_out);
 
         // Get layer parameter gradient
         let gradient = layer.get_gradient(&layer_input, &layer_intermediary, &layer_epsilon_in);
 
-        (epsilon_out.into_owned(), network.merge_gradient(gradient_rec, gradient))
+        (
+            epsilon_out.into_owned(),
+            network.merge_gradient(gradient_rec, gradient),
+        )
     }
 }
 
@@ -215,11 +220,24 @@ mod test {
         }
     }
 
+    /// Check that there is no recursion error when using `()` in `recurse`
     #[test]
-    fn test_recursive() {
+    fn test_recurse() {
         let backprop = NeuraBackprop::new(Euclidean);
         let target = dvector![0.0];
 
         (&backprop, &target).recurse(&(), &dvector![0.0]);
+    }
+
+    #[test]
+    fn test_recurse_sequential() {
+        let backprop = NeuraBackprop::new(Euclidean);
+        let target = dvector![0.0];
+
+        let network = neura_sequential![neura_layer!("dense", 4), neura_layer!("dense", 1),]
+            .construct(NeuraShape::Vector(1))
+            .unwrap();
+
+        (&backprop, &target).recurse(&network, &dvector![0.0]);
     }
 }
