@@ -95,6 +95,10 @@ impl<F: Float + std::fmt::Debug + 'static, Act: NeuraDerivable<F>, Reg: NeuraDer
             phantom: PhantomData,
         }
     }
+
+    pub fn input_len(&self) -> usize {
+        self.weights.shape().1
+    }
 }
 
 impl<F, Act, Reg, R: Rng> NeuraDenseLayerPartial<F, Act, Reg, R> {

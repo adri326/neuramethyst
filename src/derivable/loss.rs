@@ -25,6 +25,11 @@ impl<F: Float + std::fmt::Debug + 'static> NeuraLoss<DVector<F>> for Euclidean {
     #[inline]
     fn nabla(&self, target: &DVector<F>, actual: &DVector<F>) -> DVector<F> {
         let mut res = DVector::zeros(target.len());
+        assert_eq!(
+            target.shape(),
+            actual.shape(),
+            "target value differs in shape with network output"
+        );
 
         // ∂E(y)/∂yᵢ = yᵢ - yᵢ'
         for i in 0..target.len() {

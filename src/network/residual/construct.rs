@@ -6,7 +6,9 @@ pub trait NeuraResidualConstruct {
 
     fn construct_residual(
         self,
-        input: NeuraResidualInput<NeuraShape>,
+        inputs: NeuraResidualInput<NeuraShape>,
+        indices: NeuraResidualInput<usize>,
+        current_index: usize,
     ) -> Result<Self::Constructed, Self::Err>;
 }
 
@@ -14,49 +16,52 @@ pub trait NeuraResidualConstruct {
 pub enum NeuraResidualConstructErr<LayerErr, ChildErr> {
     LayerErr(LayerErr),
     ChildErr(ChildErr),
-    OOBConnection(usize),
+    WrongConnection(isize),
     AxisErr(NeuraAxisErr),
+    NoOutput,
 }
 
 use NeuraResidualConstructErr::*;
 
-impl<Layer: NeuraPartialLayer, Axis> NeuraResidualConstruct for NeuraResidualNode<Layer, (), Axis>
-where
-    Axis: NeuraCombineInputs<NeuraShape, Combined = Result<NeuraShape, NeuraAxisErr>>,
-{
-    type Constructed = NeuraResidualNode<Layer::Constructed, (), Axis>;
-    type Err = NeuraResidualConstructErr<Layer::Err, ()>;
+// impl<Layer: NeuraPartialLayer, Axis> NeuraResidualConstruct for NeuraResidualNode<Layer, NeuraResidualLast, Axis>
+// where
+//     Axis: NeuraCombineInputs<NeuraShape, Combined = Result<NeuraShape, NeuraAxisErr>>,
+// {
+//     type Constructed = NeuraResidualNode<Layer::Constructed, NeuraResidualLast, Axis>;
+//     type Err = NeuraResidualConstructErr<Layer::Err, <NeuraResidualLast as NeuraPartialLayer>::Err>;
 
-    fn construct_residual(
-        self,
-        input: NeuraResidualInput<NeuraShape>,
-    ) -> Result<Self::Constructed, Self::Err> {
-        let (layer_input_shape, _rest) = input.shift();
-        let layer_input_shape = self
-            .axis
-            .combine(layer_input_shape)
-            .map_err(|e| AxisErr(e))?;
+//     fn construct_residual(
+//         self,
+//         inputs: NeuraResidualInput<NeuraShape>,
+//         indices: NeuraResidualInput<usize>,
+//         current_index: usize,
+//     ) -> Result<Self::Constructed, Self::Err> {
+//         let (layer_input_shape, _rest) = inputs.shift();
+//         let layer_input_shape = self
+//             .axis
+//             .combine(layer_input_shape)
+//             .map_err(|e| AxisErr(e))?;
 
-        let layer = self
-            .layer
-            .construct(layer_input_shape)
-            .map_err(|e| LayerErr(e))?;
-        let layer_shape = layer.output_shape();
+//         let layer = self
+//             .layer
+//             .construct(layer_input_shape)
+//             .map_err(|e| LayerErr(e))?;
+//         let layer_shape = layer.output_shape();
 
-        if let Some(oob_offset) = self.offsets.iter().copied().find(|o| *o > 0) {
-            return Err(OOBConnection(oob_offset));
-        }
-        // TODO: check rest for non-zero columns
+//         if let Some(oob_offset) = self.offsets.iter().copied().find(|o| *o > 0) {
+//             return Err(WrongConnection(oob_offset));
+//         }
+//         // TODO: check rest for non-zero columns
 
-        Ok(NeuraResidualNode {
-            layer,
-            child_network: (),
-            offsets: self.offsets,
-            axis: self.axis,
-            output_shape: Some(layer_shape),
-        })
-    }
-}
+//         Ok(NeuraResidualNode {
+//             layer,
+//             child_network: (),
+//             offsets: self.offsets,
+//             axis: self.axis,
+//             output_shape: Some(layer_shape),
+//         })
+//     }
+// }
 
 impl<Layer: NeuraPartialLayer, ChildNetwork: NeuraResidualConstruct, Axis> NeuraResidualConstruct
     for NeuraResidualNode<Layer, ChildNetwork, Axis>
@@ -68,13 +73,16 @@ where
 
     fn construct_residual(
         self,
-        input: NeuraResidualInput<NeuraShape>,
+        inputs: NeuraResidualInput<NeuraShape>,
+        indices: NeuraResidualInput<usize>,
+        current_index: usize,
     ) -> Result<Self::Constructed, Self::Err> {
-        let (layer_input_shape, mut rest) = input.shift();
-        let layer_input_shape = self
-            .axis
-            .combine(layer_input_shape)
-            .map_err(|e| AxisErr(e))?;
+        let (input_shapes, mut rest_inputs) = inputs.shift();
+        let (this_indices, mut rest_indices) = indices.shift();
+
+        let self_input_shapes = input_shapes.iter().map(|x| **x).collect::<Vec<_>>();
+
+        let layer_input_shape = self.axis.combine(input_shapes).map_err(|e| AxisErr(e))?;
 
         let layer = self
             .layer
@@ -82,14 +90,25 @@ where
             .map_err(|e| LayerErr(e))?;
         let layer_shape = Rc::new(layer.output_shape());
 
+        if self.offsets.len() == 0 {
+            return Err(NoOutput);
+        }
+
         for &offset in &self.offsets {
-            rest.push(offset, Rc::clone(&layer_shape));
+            rest_inputs.push(offset, Rc::clone(&layer_shape));
+            rest_indices.push(offset, Rc::new(current_index));
         }
         let layer_shape = *layer_shape;
 
+        debug_assert!(this_indices.iter().all(|x| **x < current_index));
+        let input_offsets: Vec<usize> = this_indices
+            .into_iter()
+            .map(|x| current_index - *x - 1)
+            .collect();
+
         let child_network = self
             .child_network
-            .construct_residual(rest)
+            .construct_residual(rest_inputs, rest_indices, current_index + 1)
             .map_err(|e| ChildErr(e))?;
 
         Ok(NeuraResidualNode {
@@ -98,6 +117,8 @@ where
             offsets: self.offsets,
             axis: self.axis,
             output_shape: Some(layer_shape),
+            input_shapes: self_input_shapes,
+            input_offsets,
         })
     }
 }
@@ -136,14 +157,16 @@ where
     fn construct(self, input_shape: NeuraShape) -> Result<Self::Constructed, Self::Err> {
         let input_shape = Rc::new(input_shape);
         let mut inputs = NeuraResidualInput::new();
+        let mut indices = NeuraResidualInput::new();
 
         for &offset in &self.initial_offsets {
             inputs.push(offset, Rc::clone(&input_shape));
+            indices.push(offset, Rc::new(0usize));
         }
 
         drop(input_shape);
 
-        let layers = self.layers.construct_residual(inputs)?;
+        let layers = self.layers.construct_residual(inputs, indices, 1)?;
 
         Ok(NeuraResidual {
             layers,

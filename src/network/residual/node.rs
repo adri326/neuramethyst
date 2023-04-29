@@ -18,6 +18,8 @@ pub struct NeuraResidualNode<Layer, ChildNetwork, Axis> {
     pub axis: Axis,
 
     pub(crate) output_shape: Option<NeuraShape>,
+    pub(crate) input_shapes: Vec<NeuraShape>,
+    pub(crate) input_offsets: Vec<usize>,
 }
 
 impl<Layer, ChildNetwork> NeuraResidualNode<Layer, ChildNetwork, NeuraAxisAppend> {
@@ -28,6 +30,8 @@ impl<Layer, ChildNetwork> NeuraResidualNode<Layer, ChildNetwork, NeuraAxisAppend
             offsets: vec![0],
             axis: NeuraAxisAppend,
             output_shape: None,
+            input_shapes: vec![],
+            input_offsets: vec![],
         }
     }
 }
@@ -44,13 +48,20 @@ impl<Layer, ChildNetwork, Axis> NeuraResidualNode<Layer, ChildNetwork, Axis> {
     }
 
     pub fn axis<Axis2>(self, axis: Axis2) -> NeuraResidualNode<Layer, ChildNetwork, Axis2> {
+        if self.output_shape.is_some() {
+            unimplemented!(
+                "NeuraResidualNode::axis cannot yet be called after NeuraResidualNode::construct"
+            );
+        }
+
         NeuraResidualNode {
             layer: self.layer,
             child_network: self.child_network,
             offsets: self.offsets,
             axis,
-            // Drop the knowledge of output_shape
             output_shape: None,
+            input_shapes: self.input_shapes,
+            input_offsets: self.input_offsets,
         }
     }
 
@@ -195,13 +206,14 @@ where
         )
     }
 
+    #[allow(unused)]
     fn get_gradient(
         &self,
         input: &NeuraResidualInput<Data>,
         intermediary: &Self::IntermediaryRepr,
         epsilon: &Self::Output,
     ) -> Self::Gradient {
-        unimplemented!();
+        unimplemented!("NeuraResidualNode::get_gradient is not yet implemented, sorry");
     }
 }
 
@@ -232,14 +244,15 @@ impl<Axis, Layer: NeuraTrainableLayerBase, ChildNetwork: NeuraTrainableLayerBase
 }
 
 impl<
-        Data: Clone,
-        Axis: NeuraCombineInputs<Data>,
-        Layer: NeuraLayer<Axis::Combined, Output = Data>,
+        Data: Clone + std::fmt::Debug,
+        Axis: NeuraCombineInputs<Data> + NeuraSplitInputs<Data>,
+        Layer: NeuraLayer<Axis::Combined, Output = Data> + std::fmt::Debug,
         ChildNetwork,
     > NeuraNetwork<NeuraResidualInput<Data>> for NeuraResidualNode<Layer, ChildNetwork, Axis>
 where
     Layer::Output: Clone,
     Axis::Combined: Clone,
+    for<'a> Data: std::iter::Sum<&'a Data>,
 {
     type LayerInput = Axis::Combined;
 
@@ -260,20 +273,26 @@ where
         Cow::Owned(remaining_inputs)
     }
 
+    // To convert from gradient_in to gradient_out:
+    // - pop the first value from `gradient_in` (map_gradient_in)
+    // - compute its sum (map_gradient_in)
+    // - use it to compute the outcoming epsilon of the current layer (backprop)
+    // - split the oucoming epsilon into its original components (map_gradient_out)
+    // - push those back onto the rest (map_gradient_out)
+    // At this point, the value for `epsilon` in the gradient solver's state should be ready for another iteration,
+    // with the first value containing the unsummed incoming epsilon values from the downstream layers
+
     #[allow(unused_variables)]
     fn map_gradient_in<'a>(
         &'_ self,
         input: &'_ NeuraResidualInput<Data>,
         gradient_in: &'a Self::NodeOutput,
     ) -> Cow<'a, <Self::Layer as NeuraLayer<Self::LayerInput>>::Output> {
-        // To convert from gradient_in to layer's gradient_in:
-        // Pop the first value from `epsilon`, then:
-        // - compute its sum
-        // - use it to compute the outcoming epsilon of the current layer
-        // - split the oucoming epsilon into its original components, and push those back onto the rest
-        // At this point, the value for `epsilon` in the gradient solver's state should be ready for another iteration,
-        // with the first value containing the unsummed incoming epsilon values from the downstream layers
-        unimplemented!()
+        let (first_gradient, _) = gradient_in.shift();
+
+        let sum = first_gradient.iter().map(|x| x.as_ref()).sum();
+
+        Cow::Owned(sum)
     }
 
     #[allow(unused_variables)]
@@ -283,6 +302,14 @@ where
         gradient_in: &'_ Self::NodeOutput,
         gradient_out: &'a Self::LayerInput,
     ) -> Cow<'a, NeuraResidualInput<Data>> {
-        unimplemented!()
+        let (_, mut rest) = gradient_in.shift();
+
+        let split = self.axis.split(gradient_out, &self.input_shapes);
+
+        for (offset, gradient) in self.input_offsets.iter().copied().zip(split.into_iter()) {
+            rest.push(offset, Rc::new(gradient));
+        }
+
+        Cow::Owned(rest)
     }
 }

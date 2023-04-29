@@ -1,6 +1,6 @@
-use std::{borrow::Borrow, rc::Rc};
+use std::borrow::Borrow;
 
-use nalgebra::{Const, DVector, Dyn, VecStorage};
+use nalgebra::{Const, DVector, Dyn, Scalar, VecStorage};
 
 use crate::prelude::NeuraShape;
 
@@ -20,7 +20,7 @@ pub trait NeuraCombineInputs<T> {
 }
 
 pub trait NeuraSplitInputs<T>: NeuraCombineInputs<T> {
-    fn split(&self, combined: Self::Combined, input_shapes: &[NeuraShape]) -> Vec<Rc<T>>;
+    fn split(&self, combined: &Self::Combined, input_shapes: &[NeuraShape]) -> Vec<T>;
 }
 
 impl<F: Clone> NeuraCombineInputs<DVector<F>> for NeuraAxisAppend {
@@ -60,5 +60,29 @@ impl NeuraCombineInputs<NeuraShape> for NeuraAxisAppend {
         } else {
             Err(NeuraAxisErr::NoInput)
         }
+    }
+}
+
+impl<F: Clone + Scalar + Default> NeuraSplitInputs<DVector<F>> for NeuraAxisAppend {
+    fn split(&self, combined: &Self::Combined, input_shapes: &[NeuraShape]) -> Vec<DVector<F>> {
+        let mut result = Vec::with_capacity(input_shapes.len());
+        let mut offset = 0;
+
+        for &input_shape in input_shapes.iter() {
+            let NeuraShape::Vector(input_shape) = input_shape else {
+                panic!("Expected {:?} to be NeuraShape::Vector", input_shape);
+            };
+
+            let mut subvector = DVector::from_element(input_shape, F::default());
+
+            for i in 0..input_shape {
+                subvector[i] = combined[offset + i].clone();
+            }
+            result.push(subvector);
+
+            offset += input_shape;
+        }
+
+        result
     }
 }

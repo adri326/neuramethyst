@@ -33,10 +33,26 @@ impl NeuraResidualConstruct for NeuraResidualLast {
     fn construct_residual(
         self,
         input: NeuraResidualInput<NeuraShape>,
+        indices: NeuraResidualInput<usize>,
+        current_index: usize,
     ) -> Result<Self::Constructed, Self::Err> {
-        let input = *input
+        let (this_input, _rest) = input.shift();
+        let index = indices
             .get_first()
             .ok_or(Self::Err::AxisErr(NeuraAxisErr::NoInput))?;
+
+        if *index != current_index - 1 {
+            return Err(Self::Err::WrongConnection(
+                current_index as isize - *index as isize - 1,
+            ));
+        }
+        if this_input.len() != 1 {
+            return Err(Self::Err::AxisErr(NeuraAxisErr::NoInput));
+        }
+
+        // TODO: check that rest contains nothing else
+
+        let input = unwrap_or_clone(this_input.into_iter().next().unwrap());
 
         Ok(Self {
             output_shape: Some(input),
@@ -68,15 +84,12 @@ impl NeuraNetworkRec for NeuraResidualLast {
         &()
     }
 
-    fn merge_gradient(
-        &self,
-        rec_gradient: <Self::NextNode as NeuraTrainableLayerBase>::Gradient,
-        layer_gradient: <Self::Layer as NeuraTrainableLayerBase>::Gradient,
-    ) -> Self::Gradient
+    #[inline(always)]
+    fn merge_gradient(&self, _rec_gradient: (), _layer_gradient: ()) -> Self::Gradient
     where
         Self::Layer: NeuraTrainableLayerBase,
     {
-        todo!()
+        ()
     }
 }
 
@@ -107,11 +120,15 @@ impl<Data: Clone> NeuraNetwork<NeuraResidualInput<Data>> for NeuraResidualLast {
 
     fn map_gradient_out<'a>(
         &'_ self,
-        input: &'_ NeuraResidualInput<Data>,
-        gradient_in: &'_ Self::NodeOutput,
+        _input: &'_ NeuraResidualInput<Data>,
+        _gradient_in: &'_ Self::NodeOutput,
         gradient_out: &'a Self::LayerInput,
     ) -> Cow<'a, NeuraResidualInput<Data>> {
-        unimplemented!()
+        let mut result = NeuraResidualInput::new();
+
+        result.push(0, Rc::new(gradient_out.clone()));
+
+        Cow::Owned(result)
     }
 }
 

@@ -137,6 +137,36 @@ mod test {
         .unwrap();
 
         assert_eq!(network.output_shape(), NeuraShape::Vector(8));
+        assert_eq!(network.layers.layer.input_len(), 1);
+        assert_eq!(network.layers.child_network.layer.input_len(), 3); // input (1) + first layer (2)
+        assert_eq!(
+            network.layers.child_network.child_network.layer.input_len(),
+            6
+        ); // first layer (2) + second layer (4)
+
+        assert_eq!(network.layers.input_offsets, vec![0]);
+        assert_eq!(network.layers.child_network.input_offsets, vec![1, 0]); // input, first layer
+        assert_eq!(
+            network.layers.child_network.child_network.input_offsets,
+            vec![1, 0]
+        ); // first layer, second layer
+
+        let map_shape = |shapes: &[NeuraShape]| {
+            shapes
+                .into_iter()
+                .map(|shape| shape.size())
+                .collect::<Vec<_>>()
+        };
+
+        assert_eq!(map_shape(&network.layers.input_shapes), vec![1]);
+        assert_eq!(
+            map_shape(&network.layers.child_network.input_shapes),
+            vec![1, 2]
+        ); // input, first layer
+        assert_eq!(
+            map_shape(&network.layers.child_network.child_network.input_shapes),
+            vec![2, 4]
+        ); // first layer, second layer
 
         network.eval(&dvector![0.0]);
     }
@@ -147,13 +177,13 @@ mod test {
             <= 0, 1;
             neura_layer!("dense", 2) => 0, 1;
             neura_layer!("dense", 4);
-            neura_layer!("dense", 8)
+            neura_layer!("dense", 4)
         ]
         .construct(NeuraShape::Vector(1))
         .unwrap();
 
         let backprop = NeuraBackprop::new(Euclidean);
 
-        backprop.get_gradient(&network, &dvector![0.0], &dvector![0.0]);
+        backprop.get_gradient(&network, &dvector![0.0], &dvector![0.0, 0.0, 0.0, 0.0]);
     }
 }
