@@ -1,8 +1,7 @@
 use std::io::Write;
 
 use nalgebra::{dvector, DVector};
-#[allow(unused_imports)]
-use neuramethyst::derivable::activation::{LeakyRelu, Linear, Relu, Tanh};
+use neuramethyst::derivable::activation::Linear;
 use neuramethyst::derivable::loss::CrossEntropy;
 use neuramethyst::derivable::regularize::NeuraL1;
 use neuramethyst::{plot_losses, prelude::*};
@@ -10,13 +9,14 @@ use neuramethyst::{plot_losses, prelude::*};
 use rand::Rng;
 
 fn main() {
-    let mut network = neura_sequential![
-        neura_layer!("dense", 8).regularization(NeuraL1(0.001)),
-        neura_layer!("dropout", 0.25),
+    let mut network = neura_residual![
+        <= 0, 2;
+        neura_layer!("dense", 4).regularization(NeuraL1(0.001));
+        neura_layer!("dropout", 0.25);
         neura_layer!("dense", 2)
             .activation(Linear)
-            .regularization(NeuraL1(0.001)),
-        neura_layer!("softmax"),
+            .regularization(NeuraL1(0.001));
+        neura_layer!("softmax");
     ]
     .construct(NeuraShape::Vector(2))
     .unwrap();
@@ -51,13 +51,12 @@ fn main() {
                 &test_inputs,
             );
 
-            let network_trimmed = network.clone().trim_tail().trim_tail();
             draw_neuron_activation(
                 |input| {
                     let output = network.eval(&dvector![input[0] as f32, input[1] as f32]);
                     let estimation = output[0] / (output[0] + output[1]);
 
-                    let color = network_trimmed.eval(&dvector![input[0] as f32, input[1] as f32]);
+                    let color = network.eval(&dvector![input[0] as f32, input[1] as f32]);
 
                     (&color / color.map(|x| x * x).sum() * estimation)
                         .into_iter()

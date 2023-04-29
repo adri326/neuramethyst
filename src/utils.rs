@@ -149,3 +149,8 @@ pub fn plot_losses(losses: Vec<(f64, f64)>, width: u32, height: u32) {
         .linecolorplot(&Shape::Lines(&val_losses), (255, 0, 255).into())
         .nice();
 }
+
+pub(crate) fn unwrap_or_clone<T: Clone>(value: std::rc::Rc<T>) -> T {
+    // TODO: replace with Rc::unwrap_or_clone once https://github.com/rust-lang/rust/issues/93610 is closed
+    std::rc::Rc::try_unwrap(value).unwrap_or_else(|value| (*value).clone())
+}

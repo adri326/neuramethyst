@@ -24,7 +24,7 @@ pub mod prelude {
         NeuraTrainableLayerBase, NeuraTrainableLayerSelf,
     };
     pub use crate::network::sequential::{
-        NeuraSequential, NeuraSequentialConstruct, NeuraSequentialLock, NeuraSequentialTail,
+        NeuraSequential, NeuraSequentialLock, NeuraSequentialTail,
     };
     pub use crate::train::NeuraBatchedTrainer;
 }

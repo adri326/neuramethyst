@@ -2,20 +2,13 @@ use crate::layer::NeuraShapedLayer;
 
 use super::*;
 
-pub trait NeuraSequentialConstruct {
-    type Constructed;
-    type Err;
-
-    fn construct(self, input_shape: NeuraShape) -> Result<Self::Constructed, Self::Err>;
-}
-
 #[derive(Debug, Clone)]
 pub enum NeuraSequentialConstructErr<Err, ChildErr> {
     Current(Err),
     Child(ChildErr),
 }
 
-impl<Layer: NeuraPartialLayer> NeuraSequentialConstruct for NeuraSequential<Layer, ()> {
+impl<Layer: NeuraPartialLayer> NeuraPartialLayer for NeuraSequential<Layer, ()> {
     type Constructed = NeuraSequential<Layer::Constructed, ()>;
     type Err = Layer::Err;
 
@@ -27,7 +20,7 @@ impl<Layer: NeuraPartialLayer> NeuraSequentialConstruct for NeuraSequential<Laye
     }
 }
 
-impl<Layer: NeuraPartialLayer, ChildNetwork: NeuraSequentialConstruct> NeuraSequentialConstruct
+impl<Layer: NeuraPartialLayer, ChildNetwork: NeuraPartialLayer> NeuraPartialLayer
     for NeuraSequential<Layer, ChildNetwork>
 {
     type Constructed = NeuraSequential<Layer::Constructed, ChildNetwork::Constructed>;

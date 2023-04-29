@@ -1,11 +1,6 @@
 use std::rc::Rc;
 
-use nalgebra::{DVector, Scalar};
-use num::Float;
-
 use crate::layer::*;
-
-mod layer_impl;
 
 mod wrapper;
 pub use wrapper::*;
@@ -19,78 +14,16 @@ pub use axis::*;
 mod construct;
 pub use construct::NeuraResidualConstructErr;
 
-impl<Layers> NeuraResidual<Layers> {
-    pub fn new(layers: Layers) -> Self {
-        Self {
-            layers,
-            initial_offsets: vec![0],
-        }
-    }
+mod node;
+pub use node::*;
 
-    pub fn offset(mut self, offset: usize) -> Self {
-        self.initial_offsets.push(offset);
-        self
-    }
-
-    pub fn offsets(mut self, offsets: Vec<usize>) -> Self {
-        self.initial_offsets = offsets;
-        self
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct NeuraResidualNode<Layer, ChildNetwork, Axis> {
-    pub layer: Layer,
-    pub child_network: ChildNetwork,
-
-    /// Array of relative layers indices to send the offset of this layer to,
-    /// defaults to `vec![0]`.
-    offsets: Vec<usize>,
-
-    pub axis: Axis,
-
-    output_shape: Option<NeuraShape>,
-}
-
-impl<Layer, ChildNetwork> NeuraResidualNode<Layer, ChildNetwork, NeuraAxisAppend> {
-    pub fn new(layer: Layer, child_network: ChildNetwork) -> Self {
-        Self {
-            layer,
-            child_network,
-            offsets: vec![0],
-            axis: NeuraAxisAppend,
-            output_shape: None,
-        }
-    }
-}
-
-impl<Layer, ChildNetwork, Axis> NeuraResidualNode<Layer, ChildNetwork, Axis> {
-    pub fn offsets(mut self, offsets: Vec<usize>) -> Self {
-        self.offsets = offsets;
-        self
-    }
-
-    pub fn offset(mut self, offset: usize) -> Self {
-        self.offsets.push(offset);
-        self
-    }
-
-    pub fn axis<Axis2>(self, axis: Axis2) -> NeuraResidualNode<Layer, ChildNetwork, Axis2> {
-        NeuraResidualNode {
-            layer: self.layer,
-            child_network: self.child_network,
-            offsets: self.offsets,
-            axis,
-            // Drop the knowledge of output_shape
-            output_shape: None,
-        }
-    }
-}
+mod last;
+pub use last::*;
 
 #[macro_export]
 macro_rules! neura_residual {
     [ "__combine_layers", ] => {
-        ()
+        $crate::network::residual::NeuraResidualLast::new()
     };
 
     [ "__combine_layers",
@@ -136,7 +69,8 @@ macro_rules! neura_residual {
 mod test {
     use nalgebra::dvector;
 
-    use crate::neura_layer;
+    use crate::gradient_solver::NeuraGradientSolver;
+    use crate::{derivable::loss::Euclidean, neura_layer, prelude::NeuraBackprop};
 
     use super::*;
 
@@ -179,7 +113,10 @@ mod test {
         assert_eq!(network.initial_offsets, vec![0, 2]);
         assert_eq!(network.layers.offsets, vec![0, 1]);
         assert_eq!(network.layers.child_network.offsets, vec![0]);
-        assert_eq!(network.layers.child_network.child_network.child_network, ());
+        assert_eq!(
+            network.layers.child_network.child_network.child_network,
+            NeuraResidualLast::new()
+        );
 
         let network = neura_residual![
             neura_layer!("dense", 4) => 0;
@@ -202,5 +139,21 @@ mod test {
         assert_eq!(network.output_shape(), NeuraShape::Vector(8));
 
         network.eval(&dvector![0.0]);
+    }
+
+    #[test]
+    fn test_resnet_backprop() {
+        let network = neura_residual![
+            <= 0, 1;
+            neura_layer!("dense", 2) => 0, 1;
+            neura_layer!("dense", 4);
+            neura_layer!("dense", 8)
+        ]
+        .construct(NeuraShape::Vector(1))
+        .unwrap();
+
+        let backprop = NeuraBackprop::new(Euclidean);
+
+        backprop.get_gradient(&network, &dvector![0.0], &dvector![0.0]);
     }
 }

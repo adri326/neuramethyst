@@ -190,9 +190,8 @@ mod test {
         derivable::{activation::Relu, regularize::NeuraL0},
         layer::{dense::NeuraDenseLayer, NeuraLayer, NeuraShape},
         neura_layer,
+        prelude::NeuraPartialLayer,
     };
-
-    use super::NeuraSequentialConstruct;
 
     #[test]
     fn test_neura_network_macro() {

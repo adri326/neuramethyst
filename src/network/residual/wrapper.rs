@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use crate::network::*;
+use crate::{network::*, utils::unwrap_or_clone};
 
 use super::*;
 
@@ -14,6 +14,23 @@ pub struct NeuraResidual<Layers> {
 }
 
 impl<Layers> NeuraResidual<Layers> {
+    pub fn new(layers: Layers) -> Self {
+        Self {
+            layers,
+            initial_offsets: vec![0],
+        }
+    }
+
+    pub fn offset(mut self, offset: usize) -> Self {
+        self.initial_offsets.push(offset);
+        self
+    }
+
+    pub fn offsets(mut self, offsets: Vec<usize>) -> Self {
+        self.initial_offsets = offsets;
+        self
+    }
+
     fn input_to_residual_input<Input: Clone>(&self, input: &Input) -> NeuraResidualInput<Input> {
         let input: Rc<Input> = Rc::new((*input).clone());
         let mut inputs = NeuraResidualInput::new();
@@ -28,21 +45,14 @@ impl<Layers> NeuraResidual<Layers> {
     }
 }
 
-impl<Input: Clone, Output: Clone, Layers> NeuraLayer<Input> for NeuraResidual<Layers>
+impl<Input: Clone, Layers> NeuraLayer<Input> for NeuraResidual<Layers>
 where
-    Layers: NeuraLayer<NeuraResidualInput<Input>, Output = NeuraResidualInput<Output>>,
+    Layers: NeuraLayer<NeuraResidualInput<Input>>,
 {
-    type Output = Output;
+    type Output = Layers::Output;
 
     fn eval(&self, input: &Input) -> Self::Output {
-        let output = self.layers.eval(&self.input_to_residual_input(input));
-
-        let result: Rc<Self::Output> = output.get_first()
-            .expect("Invalid NeuraResidual state: network returned no data, did you forget to link the last layer?")
-            .into();
-
-        // TODO: replace with Rc::unwrap_or_clone once https://github.com/rust-lang/rust/issues/93610 is closed
-        Rc::try_unwrap(result).unwrap_or_else(|result| (*result).clone())
+        self.layers.eval(&self.input_to_residual_input(input))
     }
 }
 
@@ -60,31 +70,19 @@ impl<Layers: NeuraTrainableLayerBase> NeuraTrainableLayerBase for NeuraResidual<
     }
 }
 
-impl<
-        Data: Clone,
-        Layers: NeuraTrainableLayerEval<NeuraResidualInput<Data>, Output = NeuraResidualInput<Data>>,
-    > NeuraTrainableLayerEval<Data> for NeuraResidual<Layers>
+impl<Data: Clone, Layers: NeuraTrainableLayerEval<NeuraResidualInput<Data>>>
+    NeuraTrainableLayerEval<Data> for NeuraResidual<Layers>
 {
     type IntermediaryRepr = Layers::IntermediaryRepr;
 
     fn eval_training(&self, input: &Data) -> (Self::Output, Self::IntermediaryRepr) {
-        let (output, intermediary) = self
-            .layers
-            .eval_training(&self.input_to_residual_input(input));
-
-        let result: Rc<Self::Output> = output.get_first().unwrap().into();
-
-        (
-            Rc::try_unwrap(result).unwrap_or_else(|result| (*result).clone()),
-            intermediary,
-        )
+        self.layers
+            .eval_training(&self.input_to_residual_input(input))
     }
 }
 
-impl<
-        Data: Clone,
-        Layers: NeuraTrainableLayerSelf<NeuraResidualInput<Data>, Output = NeuraResidualInput<Data>>,
-    > NeuraTrainableLayerSelf<Data> for NeuraResidual<Layers>
+impl<Data: Clone, Layers: NeuraTrainableLayerSelf<NeuraResidualInput<Data>>>
+    NeuraTrainableLayerSelf<Data> for NeuraResidual<Layers>
 {
     fn regularize_layer(&self) -> Self::Gradient {
         self.layers.regularize_layer()
@@ -96,16 +94,8 @@ impl<
         intermediary: &Self::IntermediaryRepr,
         epsilon: &Self::Output,
     ) -> Self::Gradient {
-        let epsilon = Rc::new(epsilon.clone());
-        let mut epsilon_residual = NeuraResidualInput::new();
-
-        epsilon_residual.push(0, epsilon);
-
-        self.layers.get_gradient(
-            &self.input_to_residual_input(input),
-            intermediary,
-            &epsilon_residual,
-        )
+        self.layers
+            .get_gradient(&self.input_to_residual_input(input), intermediary, &epsilon)
     }
 }
 

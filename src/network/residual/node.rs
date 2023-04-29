@@ -1,11 +1,59 @@
-//! Implementations for NeuraLayer*
+use nalgebra::{DVector, Scalar};
+use num::Float;
 use std::borrow::Cow;
 
 use crate::network::*;
 
 use super::*;
 
-impl<Axis, Layer, ChildNetwork> NeuraResidualNode<Layer, ChildNetwork, Axis> {
+#[derive(Clone, Debug, PartialEq)]
+pub struct NeuraResidualNode<Layer, ChildNetwork, Axis> {
+    pub layer: Layer,
+    pub child_network: ChildNetwork,
+
+    /// Array of relative layers indices to send the offset of this layer to,
+    /// defaults to `vec![0]`.
+    pub(crate) offsets: Vec<usize>,
+
+    pub axis: Axis,
+
+    pub(crate) output_shape: Option<NeuraShape>,
+}
+
+impl<Layer, ChildNetwork> NeuraResidualNode<Layer, ChildNetwork, NeuraAxisAppend> {
+    pub fn new(layer: Layer, child_network: ChildNetwork) -> Self {
+        Self {
+            layer,
+            child_network,
+            offsets: vec![0],
+            axis: NeuraAxisAppend,
+            output_shape: None,
+        }
+    }
+}
+
+impl<Layer, ChildNetwork, Axis> NeuraResidualNode<Layer, ChildNetwork, Axis> {
+    pub fn offsets(mut self, offsets: Vec<usize>) -> Self {
+        self.offsets = offsets;
+        self
+    }
+
+    pub fn offset(mut self, offset: usize) -> Self {
+        self.offsets.push(offset);
+        self
+    }
+
+    pub fn axis<Axis2>(self, axis: Axis2) -> NeuraResidualNode<Layer, ChildNetwork, Axis2> {
+        NeuraResidualNode {
+            layer: self.layer,
+            child_network: self.child_network,
+            offsets: self.offsets,
+            axis,
+            // Drop the knowledge of output_shape
+            output_shape: None,
+        }
+    }
+
     fn process_input<Data>(
         &self,
         input: &NeuraResidualInput<Data>,
