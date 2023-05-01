@@ -5,6 +5,9 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+visualization = ["dep:image", "dep:viuer"]
+
 [dependencies]
 boxed-array = "0.1.0"
 nalgebra = { version = "^0.32", features = ["std", "macros", "rand", "serde-serialize"] }
@@ -14,6 +17,8 @@ num = "^0.4"
 rand = "^0.8"
 rand_distr = "0.4.3"
 textplots = "0.8.0"
+image = { version = "0.24.6", optional = true }
+viuer = { version = "0.6.2", optional = true }
 
 [dev-dependencies]
 image = "0.24.6"
@@ -24,3 +29,15 @@ approx = "0.5.1"
 
 [profile.release]
 debug = true
+
+[[example]]
+name = "densenet"
+required-features = ["visualization"]
+
+[[example]]
+name = "mnist-decoder"
+required-features = ["visualization"]
+
+[[example]]
+name = "mnist-diffusion"
+required-features = ["visualization"]

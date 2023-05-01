@@ -97,6 +97,7 @@ pub(crate) fn uniform_vector(length: usize) -> nalgebra::DVector<f64> {
     DVector::from_fn(length, |_, _| -> f64 { rng.gen() })
 }
 
+#[deprecated]
 pub fn one_hot<const N: usize>(value: usize) -> NeuraVector<N, f64> {
     let mut res = NeuraVector::default();
     if value < N {
@@ -153,4 +154,42 @@ pub fn plot_losses(losses: Vec<(f64, f64)>, width: u32, height: u32) {
 pub(crate) fn unwrap_or_clone<T: Clone>(value: std::rc::Rc<T>) -> T {
     // TODO: replace with Rc::unwrap_or_clone once https://github.com/rust-lang/rust/issues/93610 is closed
     std::rc::Rc::try_unwrap(value).unwrap_or_else(|value| (*value).clone())
+}
+
+#[cfg(feature = "visualization")]
+pub fn draw_neuron_activation<F: Fn([f32; 2]) -> Vec<f32>>(
+    callback: F,
+    scale: f32,
+    width: u32,
+    height: u32,
+) {
+    use viuer::Config;
+
+    let mut image = image::RgbImage::new(width, height);
+
+    fn sigmoid(x: f32) -> f32 {
+        1.9 / (1.0 + (-x * 3.0).exp()) - 0.9
+    }
+
+    for y in 0..height {
+        let y2 = 2.0 * y as f32 / height as f32 - 1.0;
+        for x in 0..width {
+            let x2 = 2.0 * x as f32 / width as f32 - 1.0;
+            let activation = callback([x2 * scale, y2 * scale]);
+            let r = (sigmoid(activation.get(0).copied().unwrap_or(-1.0)) * 255.0).floor() as u8;
+            let g = (sigmoid(activation.get(1).copied().unwrap_or(-1.0)) * 255.0).floor() as u8;
+            let b = (sigmoid(activation.get(2).copied().unwrap_or(-1.0)) * 255.0).floor() as u8;
+
+            *image.get_pixel_mut(x, y) = image::Rgb([r, g, b]);
+        }
+    }
+
+    let config = Config {
+        use_kitty: false,
+        truecolor: true,
+        // absolute_offset: false,
+        ..Default::default()
+    };
+
+    viuer::print(&image::DynamicImage::ImageRgb8(image), &config).unwrap();
 }

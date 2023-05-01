@@ -4,6 +4,7 @@ use self::lock::NeuraLockLayer;
 
 pub mod dense;
 pub mod dropout;
+pub mod isolate;
 pub mod lock;
 pub mod normalize;
 pub mod softmax;
@@ -22,6 +23,55 @@ impl NeuraShape {
             NeuraShape::Matrix(rows, columns) => rows * columns,
             NeuraShape::Tensor(rows, columns, channels) => rows * columns * channels,
         }
+    }
+
+    pub fn sub(&self, other: NeuraShape) -> Option<NeuraShape> {
+        use NeuraShape::*;
+
+        Some(match (other, self) {
+            (Vector(x1), Vector(x2)) => Vector(x2 - x1),
+            (Matrix(x1, y1), Matrix(x2, y2)) => Matrix(x2 - x1, y2 - y1),
+            (Tensor(x1, y1, z1), Tensor(x2, y2, z2)) => Tensor(x2 - x1, y2 - y1, z2 - z1),
+
+            _ => return None,
+        })
+    }
+
+    pub fn is_compatible(&self, other: NeuraShape) -> bool {
+        use NeuraShape::*;
+
+        matches!(
+            (self, other),
+            (Vector(_), Vector(_))
+                | (Matrix(_, _), Matrix(_, _))
+                | (Tensor(_, _, _), Tensor(_, _, _))
+        )
+    }
+
+    pub fn dims(&self) -> usize {
+        match self {
+            NeuraShape::Vector(_) => 1,
+            NeuraShape::Matrix(_, _) => 2,
+            NeuraShape::Tensor(_, _, _) => 3,
+        }
+    }
+}
+
+impl From<usize> for NeuraShape {
+    fn from(x: usize) -> Self {
+        NeuraShape::Vector(x)
+    }
+}
+
+impl From<(usize, usize)> for NeuraShape {
+    fn from((x, y): (usize, usize)) -> Self {
+        NeuraShape::Matrix(x, y)
+    }
+}
+
+impl From<(usize, usize, usize)> for NeuraShape {
+    fn from((x, y, z): (usize, usize, usize)) -> Self {
+        NeuraShape::Tensor(x, y, z)
     }
 }
 
@@ -216,5 +266,9 @@ macro_rules! neura_layer {
 
     ( "normalize" ) => {
         $crate::layer::normalize::NeuraNormalizeLayer::new()
+    };
+
+    ( "isolate", $start:expr, $end:expr ) => {
+        $crate::layer::isolate::NeuraIsolateLayer::new($start, $end).unwrap()
     };
 }

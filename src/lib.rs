@@ -10,6 +10,9 @@ mod utils;
 // TODO: move to a different file
 pub use utils::{argmax, cycle_shuffling, one_hot, plot_losses};
 
+#[cfg(feature = "visualization")]
+pub use utils::draw_neuron_activation;
+
 /// Common traits and structs that are useful to use this library.
 /// All of these traits are prefixed with the word "neura" in some way,
 /// so there should not be any conflicts when doing a wildcard import of `prelude`.
