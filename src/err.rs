@@ -91,3 +91,9 @@ pub struct NeuraDimensionsMismatch {
     pub existing: usize,
     pub new: NeuraShape,
 }
+
+#[derive(Clone, Debug)]
+pub enum NeuraGraphErr {
+    MissingNode(String),
+    InvalidName(String),
+}
