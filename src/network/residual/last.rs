@@ -1,6 +1,9 @@
+use crate::err::*;
 use crate::layer::*;
 use crate::network::*;
 use crate::utils::unwrap_or_clone;
+
+use NeuraResidualConstructErr::*;
 
 use std::borrow::Cow;
 
@@ -28,7 +31,7 @@ impl Default for NeuraResidualLast {
 
 impl NeuraResidualConstruct for NeuraResidualLast {
     type Constructed = NeuraResidualLast;
-    type Err = NeuraResidualConstructErr<(), ()>;
+    type Err = NeuraRecursiveErr<NeuraResidualConstructErr<()>, ()>;
 
     fn construct_residual(
         self,
@@ -39,15 +42,15 @@ impl NeuraResidualConstruct for NeuraResidualLast {
         let (this_input, _rest) = input.shift();
         let index = indices
             .get_first()
-            .ok_or(Self::Err::AxisErr(NeuraAxisErr::NoInput))?;
+            .ok_or(Self::Err::Current(AxisErr(NeuraAxisErr::NoInput)))?;
 
         if *index != current_index - 1 {
-            return Err(Self::Err::WrongConnection(
+            return Err(Self::Err::Current(WrongConnection(
                 current_index as isize - *index as isize - 1,
-            ));
+            )));
         }
         if this_input.len() != 1 {
-            return Err(Self::Err::AxisErr(NeuraAxisErr::NoInput));
+            return Err(Self::Err::Current(AxisErr(NeuraAxisErr::NoInput)));
         }
 
         // TODO: check that rest contains nothing else

@@ -1,4 +1,5 @@
 use nalgebra::DVector;
+use rand::Rng;
 use rust_mnist::Mnist;
 
 use neuramethyst::{
@@ -7,7 +8,7 @@ use neuramethyst::{
         activation::{Linear, Logistic, Relu, Swish, Tanh},
         loss::{CrossEntropy, Euclidean},
     },
-    plot_losses,
+    one_hot, plot_losses,
     prelude::*,
 };
 
@@ -59,23 +60,27 @@ pub fn main() {
         neura_layer!("dense", 100).activation(Swish(Logistic)),
         neura_layer!("dense", 50).activation(Swish(Logistic)),
         neura_layer!("dense", LATENT_SIZE).activation(Tanh),
-        neura_layer!("dense", 50),
-        neura_layer!("dense", 100),
+        neura_layer!("dense", 100).activation(Swish(Logistic)),
         neura_layer!("dense", WIDTH * HEIGHT).activation(Relu),
     ]
     .construct(NeuraShape::Vector(WIDTH * HEIGHT))
     .unwrap();
 
-    let trainer = NeuraBatchedTrainer::with_epochs(0.03, 75, 512, TRAIN_SIZE);
+    let mut trainer = NeuraBatchedTrainer::with_epochs(0.03, 200, 512, TRAIN_SIZE);
+    trainer.learning_momentum = 0.002;
     // trainer.log_iterations = 1;
 
+    let mut rng = rand::thread_rng();
     let losses = trainer.train(
         &NeuraBackprop::new(Euclidean),
         &mut network,
-        cycle_shuffling(
-            train_images.clone().zip(train_images.clone()),
-            rand::thread_rng(),
-        ),
+        cycle_shuffling(train_images.clone(), rand::thread_rng()).map(move |input| {
+            let dx = rng.gen_range(-4..4);
+            let dy = rng.gen_range(-4..4);
+
+            let shifted = shift(&input, dx, dy);
+            (shifted.clone(), shifted)
+        }),
         &test_data,
     );
 
@@ -83,7 +88,7 @@ pub fn main() {
 
     // Then, train a small network to decode the encoded data into the categories
 
-    let trimmed_network = network.clone().trim_tail().trim_tail().trim_tail();
+    let trimmed_network = network.clone().trim_tail().trim_tail();
 
     let mut network = neura_sequential![
         ..trimmed_network.lock(),
@@ -102,11 +107,11 @@ pub fn main() {
         .zip(test_labels.clone())
         .collect::<Vec<_>>();
 
-    let trainer = NeuraBatchedTrainer::with_epochs(0.03, 20, 128, TRAIN_SIZE);
+    let trainer = NeuraBatchedTrainer::with_epochs(0.03, 10, 128, TRAIN_SIZE);
 
     plot_losses(
         trainer.train(
-            &NeuraBackprop::new(Euclidean),
+            &NeuraBackprop::new(CrossEntropy),
             &mut network,
             cycle_shuffling(train_images.clone().zip(train_labels), rand::thread_rng()),
             &test_data,
@@ -135,10 +140,21 @@ pub fn main() {
     );
 }
 
-fn one_hot(value: usize, categories: usize) -> DVector<f32> {
-    let mut res = DVector::from_element(categories, 0.0);
-    if value < categories {
-        res[value] = 1.0;
+fn shift(image: &DVector<f32>, dx: i32, dy: i32) -> DVector<f32> {
+    let mut res = DVector::from_element(image.len(), 0.0);
+    let width = WIDTH as i32;
+    let height = HEIGHT as i32;
+
+    for y in 0..height {
+        for x in 0..width {
+            let x2 = x + dx;
+            let y2 = y + dy;
+            if y2 < 0 || y2 >= height || x2 < 0 || x2 >= width {
+                continue;
+            }
+            res[(y2 * width + x2) as usize] = image[(y * width + x) as usize];
+        }
     }
+
     res
 }

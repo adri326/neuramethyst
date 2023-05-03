@@ -10,7 +10,7 @@ use neuramethyst::{
         loss::Euclidean,
         regularize::NeuraL2,
     },
-    plot_losses,
+    one_hot, plot_losses,
     prelude::*,
 };
 
@@ -142,14 +142,6 @@ fn uniform_vector(length: usize) -> DVector<f32> {
         res[i] = rng.gen();
     }
 
-    res
-}
-
-fn one_hot(value: usize, categories: usize) -> DVector<f32> {
-    let mut res = DVector::from_element(categories, 0.0);
-    if value < categories {
-        res[value] = 1.0;
-    }
     res
 }
 

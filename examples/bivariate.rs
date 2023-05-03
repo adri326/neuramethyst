@@ -1,11 +1,12 @@
 use std::io::Write;
 
+#[allow(unused_imports)]
 use nalgebra::{dvector, DVector};
 #[allow(unused_imports)]
 use neuramethyst::derivable::activation::{LeakyRelu, Linear, Relu, Tanh};
 use neuramethyst::derivable::loss::CrossEntropy;
 use neuramethyst::derivable::regularize::NeuraL1;
-use neuramethyst::{plot_losses, prelude::*};
+use neuramethyst::{one_hot, plot_losses, prelude::*};
 
 use rand::Rng;
 
@@ -131,12 +132,4 @@ fn draw_neuron_activation<F: Fn([f64; 2]) -> Vec<f64>>(callback: F, scale: f64) 
     };
 
     viuer::print(&image::DynamicImage::ImageRgb8(image), &config).unwrap();
-}
-
-fn one_hot(value: usize, categories: usize) -> DVector<f32> {
-    let mut res = DVector::from_element(categories, 0.0);
-    if value < categories {
-        res[value] = 1.0;
-    }
-    res
 }

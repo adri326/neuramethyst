@@ -1,4 +1,4 @@
-use crate::algebra::NeuraVector;
+use nalgebra::DVector;
 
 #[allow(dead_code)]
 pub(crate) fn assign_add_vector<const N: usize>(sum: &mut [f64; N], operand: &[f64; N]) {
@@ -90,17 +90,15 @@ where
 
 #[cfg(test)]
 pub(crate) fn uniform_vector(length: usize) -> nalgebra::DVector<f64> {
-    use nalgebra::DVector;
     use rand::Rng;
 
     let mut rng = rand::thread_rng();
     DVector::from_fn(length, |_, _| -> f64 { rng.gen() })
 }
 
-#[deprecated]
-pub fn one_hot<const N: usize>(value: usize) -> NeuraVector<N, f64> {
-    let mut res = NeuraVector::default();
-    if value < N {
+pub fn one_hot(value: usize, categories: usize) -> DVector<f32> {
+    let mut res = DVector::from_element(categories, 0.0);
+    if value < categories {
         res[value] = 1.0;
     }
     res

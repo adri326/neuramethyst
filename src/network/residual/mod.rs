@@ -12,7 +12,7 @@ mod axis;
 pub use axis::*;
 
 mod construct;
-pub use construct::NeuraResidualConstructErr;
+pub use construct::NeuraResidualConstruct;
 
 mod node;
 pub use node::*;

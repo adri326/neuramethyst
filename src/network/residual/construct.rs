@@ -1,4 +1,7 @@
+use crate::err::*;
+
 use super::*;
+use NeuraResidualConstructErr::*;
 
 pub trait NeuraResidualConstruct {
     type Constructed;
@@ -12,64 +15,13 @@ pub trait NeuraResidualConstruct {
     ) -> Result<Self::Constructed, Self::Err>;
 }
 
-#[derive(Clone, Debug)]
-pub enum NeuraResidualConstructErr<LayerErr, ChildErr> {
-    LayerErr(LayerErr),
-    ChildErr(ChildErr),
-    WrongConnection(isize),
-    AxisErr(NeuraAxisErr),
-    NoOutput,
-}
-
-use NeuraResidualConstructErr::*;
-
-// impl<Layer: NeuraPartialLayer, Axis> NeuraResidualConstruct for NeuraResidualNode<Layer, NeuraResidualLast, Axis>
-// where
-//     Axis: NeuraCombineInputs<NeuraShape, Combined = Result<NeuraShape, NeuraAxisErr>>,
-// {
-//     type Constructed = NeuraResidualNode<Layer::Constructed, NeuraResidualLast, Axis>;
-//     type Err = NeuraResidualConstructErr<Layer::Err, <NeuraResidualLast as NeuraPartialLayer>::Err>;
-
-//     fn construct_residual(
-//         self,
-//         inputs: NeuraResidualInput<NeuraShape>,
-//         indices: NeuraResidualInput<usize>,
-//         current_index: usize,
-//     ) -> Result<Self::Constructed, Self::Err> {
-//         let (layer_input_shape, _rest) = inputs.shift();
-//         let layer_input_shape = self
-//             .axis
-//             .combine(layer_input_shape)
-//             .map_err(|e| AxisErr(e))?;
-
-//         let layer = self
-//             .layer
-//             .construct(layer_input_shape)
-//             .map_err(|e| LayerErr(e))?;
-//         let layer_shape = layer.output_shape();
-
-//         if let Some(oob_offset) = self.offsets.iter().copied().find(|o| *o > 0) {
-//             return Err(WrongConnection(oob_offset));
-//         }
-//         // TODO: check rest for non-zero columns
-
-//         Ok(NeuraResidualNode {
-//             layer,
-//             child_network: (),
-//             offsets: self.offsets,
-//             axis: self.axis,
-//             output_shape: Some(layer_shape),
-//         })
-//     }
-// }
-
 impl<Layer: NeuraPartialLayer, ChildNetwork: NeuraResidualConstruct, Axis> NeuraResidualConstruct
     for NeuraResidualNode<Layer, ChildNetwork, Axis>
 where
     Axis: NeuraCombineInputs<NeuraShape, Combined = Result<NeuraShape, NeuraAxisErr>>,
 {
     type Constructed = NeuraResidualNode<Layer::Constructed, ChildNetwork::Constructed, Axis>;
-    type Err = NeuraResidualConstructErr<Layer::Err, ChildNetwork::Err>;
+    type Err = NeuraRecursiveErr<NeuraResidualConstructErr<Layer::Err>, ChildNetwork::Err>;
 
     fn construct_residual(
         self,
@@ -82,16 +34,19 @@ where
 
         let self_input_shapes = input_shapes.iter().map(|x| **x).collect::<Vec<_>>();
 
-        let layer_input_shape = self.axis.combine(input_shapes).map_err(|e| AxisErr(e))?;
+        let layer_input_shape = self
+            .axis
+            .combine(input_shapes)
+            .map_err(|e| NeuraRecursiveErr::Current(AxisErr(e)))?;
 
         let layer = self
             .layer
             .construct(layer_input_shape)
-            .map_err(|e| LayerErr(e))?;
+            .map_err(|e| NeuraRecursiveErr::Current(Layer(e)))?;
         let layer_shape = Rc::new(layer.output_shape());
 
         if self.offsets.len() == 0 {
-            return Err(NoOutput);
+            return Err(NeuraRecursiveErr::Current(NoOutput));
         }
 
         for &offset in &self.offsets {
@@ -109,7 +64,7 @@ where
         let child_network = self
             .child_network
             .construct_residual(rest_inputs, rest_indices, current_index + 1)
-            .map_err(|e| ChildErr(e))?;
+            .map_err(|e| NeuraRecursiveErr::Child(e))?;
 
         Ok(NeuraResidualNode {
             layer,

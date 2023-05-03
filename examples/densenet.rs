@@ -4,7 +4,7 @@ use nalgebra::{dvector, DVector};
 use neuramethyst::derivable::activation::Linear;
 use neuramethyst::derivable::loss::CrossEntropy;
 use neuramethyst::derivable::regularize::NeuraL1;
-use neuramethyst::{plot_losses, prelude::*};
+use neuramethyst::{one_hot, plot_losses, prelude::*};
 
 use rand::Rng;
 
@@ -94,12 +94,4 @@ fn main() {
         let guess = neuramethyst::argmax(network.eval(&input).as_slice());
         writeln!(&mut file, "{},{},{}", input[0], input[1], guess).unwrap();
     }
-}
-
-fn one_hot(value: usize, categories: usize) -> DVector<f32> {
-    let mut res = DVector::from_element(categories, 0.0);
-    if value < categories {
-        res[value] = 1.0;
-    }
-    res
 }

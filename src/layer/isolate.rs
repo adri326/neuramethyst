@@ -1,5 +1,7 @@
 use nalgebra::{DVector, Scalar};
 
+use crate::err::NeuraIsolateLayerErr;
+
 use super::*;
 
 /// **Class invariant:** start and end are
@@ -7,24 +9,6 @@ use super::*;
 pub struct NeuraIsolateLayer {
     start: NeuraShape,
     end: NeuraShape,
-}
-
-#[derive(Clone, Debug)]
-pub enum NeuraIsolateLayerErr {
-    Incompatible {
-        start: NeuraShape,
-        end: NeuraShape,
-        input_shape: NeuraShape,
-    },
-    OutOfBound {
-        start: NeuraShape,
-        end: NeuraShape,
-        input_shape: NeuraShape,
-    },
-    OutOfOrder {
-        start: NeuraShape,
-        end: NeuraShape,
-    },
 }
 
 impl NeuraIsolateLayer {

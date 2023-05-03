@@ -2,7 +2,7 @@ use crate::algebra::NeuraVector;
 
 pub mod activation;
 pub mod loss;
-pub mod reduce;
+// pub mod reduce;
 pub mod regularize;
 
 pub trait NeuraDerivable<F> {

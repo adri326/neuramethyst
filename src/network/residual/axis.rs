@@ -2,16 +2,10 @@ use std::borrow::Borrow;
 
 use nalgebra::{Const, DVector, Dyn, Scalar, VecStorage};
 
-use crate::prelude::NeuraShape;
+use crate::{err::NeuraAxisErr, prelude::NeuraShape};
 
 #[derive(Clone, Copy, Debug)]
 pub struct NeuraAxisAppend;
-
-#[derive(Clone, Copy, Debug)]
-pub enum NeuraAxisErr {
-    NoInput,
-    ConflictingShape(NeuraShape, NeuraShape),
-}
 
 pub trait NeuraCombineInputs<T> {
     type Combined;

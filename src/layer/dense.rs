@@ -4,7 +4,7 @@ use nalgebra::{DMatrix, DVector};
 use num::Float;
 use rand::Rng;
 
-use crate::derivable::NeuraDerivable;
+use crate::{derivable::NeuraDerivable, err::NeuraDimensionsMismatch};
 
 use super::*;
 
@@ -155,6 +155,24 @@ where
             self.activation,
             self.regularization,
         ))
+    }
+}
+
+impl<F: Float, Act: NeuraDerivable<F>, Reg: NeuraDerivable<F>> NeuraPartialLayer
+    for NeuraDenseLayer<F, Act, Reg>
+{
+    type Constructed = Self;
+    type Err = NeuraDimensionsMismatch;
+
+    fn construct(self, input_shape: NeuraShape) -> Result<Self::Constructed, Self::Err> {
+        if input_shape.size() != self.weights.shape().1 {
+            return Err(NeuraDimensionsMismatch {
+                existing: self.weights.shape().1,
+                new: input_shape,
+            });
+        }
+
+        Ok(self)
     }
 }
 
