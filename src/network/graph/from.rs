@@ -2,60 +2,63 @@ use crate::network::residual::{NeuraAxisDefault, NeuraSplitInputs};
 
 use super::*;
 
-trait FromSequential<Seq, Data> {
-    fn from_sequential(
+pub trait FromSequential<Seq, Data> {
+    fn from_sequential_rec(
         seq: &Seq,
         nodes: Vec<NeuraGraphNodeConstructed<Data>>,
-        output_shape: NeuraShape,
+        input_shape: NeuraShape,
     ) -> Self;
 }
 
 impl<Data> FromSequential<(), Data> for NeuraGraph<Data> {
-    fn from_sequential(
+    fn from_sequential_rec(
         _seq: &(),
         nodes: Vec<NeuraGraphNodeConstructed<Data>>,
-        output_shape: NeuraShape,
+        input_shape: NeuraShape,
     ) -> Self {
         Self {
             output_index: nodes.len(),
             buffer_size: nodes.len() + 1,
             nodes: nodes,
-            output_shape,
+            output_shape: input_shape,
         }
     }
 }
 
-impl<
-        Data: Clone,
-        Layer: NeuraLayer<Data, Output = Data> + Clone + std::fmt::Debug + 'static,
-        ChildNetwork,
-    > FromSequential<NeuraSequential<Layer, ChildNetwork>, Data> for NeuraGraph<Data>
+impl<Data: Clone + 'static, Layer: NeuraTrainableLayerFull<Data, Output = Data>, ChildNetwork>
+    FromSequential<NeuraSequential<Layer, ChildNetwork>, Data> for NeuraGraph<Data>
 where
     NeuraGraph<Data>: FromSequential<ChildNetwork, Data>,
     NeuraAxisDefault: NeuraSplitInputs<Data, Combined = Data>,
+    Layer::IntermediaryRepr: 'static,
 {
-    fn from_sequential(
+    fn from_sequential_rec(
         seq: &NeuraSequential<Layer, ChildNetwork>,
         mut nodes: Vec<NeuraGraphNodeConstructed<Data>>,
-        output_shape: NeuraShape,
+        input_shape: NeuraShape,
     ) -> Self {
         nodes.push(NeuraGraphNodeConstructed {
-            node: Box::new(NeuraGraphNode::from(seq.layer.clone())),
+            node: Box::new(NeuraGraphNode::from_layer(
+                seq.layer.clone(),
+                vec![input_shape],
+            )),
             inputs: vec![nodes.len()],
             output: nodes.len() + 1,
         });
 
-        Self::from_sequential(&seq.child_network, nodes, output_shape)
+        Self::from_sequential_rec(&seq.child_network, nodes, seq.layer.output_shape())
     }
 }
 
-impl<Data, Layer, ChildNetwork> From<NeuraSequential<Layer, ChildNetwork>> for NeuraGraph<Data>
-where
-    NeuraGraph<Data>: FromSequential<NeuraSequential<Layer, ChildNetwork>, Data>,
-    NeuraSequential<Layer, ChildNetwork>: NeuraShapedLayer,
-{
-    fn from(network: NeuraSequential<Layer, ChildNetwork>) -> Self {
-        let output_shape = network.output_shape();
-        Self::from_sequential(&network, vec![], output_shape)
+impl<Data> NeuraGraph<Data> {
+    pub fn from_sequential<Layer, ChildNetwork>(
+        network: NeuraSequential<Layer, ChildNetwork>,
+        input_shape: NeuraShape,
+    ) -> Self
+    where
+        NeuraGraph<Data>: FromSequential<NeuraSequential<Layer, ChildNetwork>, Data>,
+        NeuraSequential<Layer, ChildNetwork>: NeuraShapedLayer,
+    {
+        Self::from_sequential_rec(&network, vec![], input_shape)
     }
 }

@@ -1,12 +1,15 @@
 use dyn_clone::DynClone;
-use std::fmt::Debug;
+use std::{any::Any, fmt::Debug};
 
 use crate::{
+    algebra::NeuraDynVectorSpace,
     err::NeuraAxisErr,
-    layer::{NeuraLayer, NeuraShapedLayer},
+    layer::{NeuraShapedLayer, NeuraTrainableLayerEval},
     network::residual::{NeuraAxisDefault, NeuraCombineInputs, NeuraSplitInputs},
     prelude::{NeuraPartialLayer, NeuraShape},
 };
+
+use super::*;
 
 // TODO: split into two  traits
 pub trait NeuraGraphNodePartial<Data>: DynClone + Debug {
@@ -20,7 +23,17 @@ pub trait NeuraGraphNodePartial<Data>: DynClone + Debug {
 }
 
 pub trait NeuraGraphNodeEval<Data>: DynClone + Debug {
-    fn eval<'a>(&'a self, inputs: &[Data]) -> Data;
+    fn eval(&self, inputs: &[Data]) -> Data;
+
+    fn eval_training(&self, inputs: &[Data]) -> (Data, Box<dyn Any>);
+    fn backprop(&self, intermediary: &dyn Any, epsilon_in: &Data) -> Vec<Data>;
+    fn get_gradient(
+        &self,
+        intermediary: &dyn Any,
+        epsilon_in: &Data,
+    ) -> Box<dyn NeuraDynVectorSpace>;
+
+    fn apply_gradient(&mut self, gradient: &dyn NeuraDynVectorSpace);
 }
 
 #[derive(Clone, Debug)]
@@ -29,6 +42,21 @@ pub struct NeuraGraphNode<Axis, Layer> {
     axis: Axis,
     layer: Layer,
     name: String,
+
+    input_shapes: Option<Vec<NeuraShape>>,
+}
+
+impl<Layer> NeuraGraphNode<NeuraAxisDefault, Layer> {
+    pub(crate) fn from_layer(layer: Layer, input_shapes: Vec<NeuraShape>) -> Self {
+        Self {
+            inputs: vec![],
+            axis: NeuraAxisDefault,
+            layer,
+            name: random_name(),
+
+            input_shapes: Some(input_shapes),
+        }
+    }
 }
 
 impl<Axis, Layer> NeuraGraphNode<Axis, Layer> {
@@ -39,6 +67,8 @@ impl<Axis, Layer> NeuraGraphNode<Axis, Layer> {
             axis,
             layer,
             name,
+
+            input_shapes: None,
         }
     }
 
@@ -50,38 +80,101 @@ impl<Axis, Layer> NeuraGraphNode<Axis, Layer> {
             + Debug
             + 'static,
         Layer: NeuraPartialLayer + Clone + Debug + 'static,
-        Layer::Constructed: NeuraShapedLayer
-            + NeuraLayer<<Axis as NeuraCombineInputs<Data>>::Combined, Output = Data>
-            + Clone
-            + Debug
-            + 'static,
+        Layer::Constructed:
+            NeuraTrainableLayerFull<<Axis as NeuraCombineInputs<Data>>::Combined, Output = Data>,
         Layer::Err: Debug,
+        <Layer::Constructed as NeuraTrainableLayerEval<
+            <Axis as NeuraCombineInputs<Data>>::Combined,
+        >>::IntermediaryRepr: 'static,
+        <Axis as NeuraCombineInputs<Data>>::Combined: 'static,
     {
         Box::new(self)
     }
+
+    fn downcast_intermediary<'a, Data>(
+        &self,
+        intermediary: &'a dyn Any,
+    ) -> &'a Intermediary<Axis::Combined, Layer>
+    where
+        Axis: NeuraCombineInputs<Data>,
+        Layer: NeuraTrainableLayerFull<Axis::Combined>,
+        Axis::Combined: 'static,
+    {
+        intermediary
+            .downcast_ref::<Intermediary<Axis::Combined, Layer>>()
+            .expect("Incompatible value passed to NeuraGraphNode::backprop")
+    }
+}
+
+struct Intermediary<Combined, Layer: NeuraTrainableLayerFull<Combined>>
+where
+    Layer::IntermediaryRepr: 'static,
+{
+    combined: Combined,
+    layer_intermediary: Layer::IntermediaryRepr,
 }
 
 impl<
         Data: Clone,
         Axis: NeuraSplitInputs<Data> + Clone + Debug,
-        Layer: NeuraLayer<<Axis as NeuraCombineInputs<Data>>::Combined, Output = Data> + Clone + Debug,
+        Layer: NeuraTrainableLayerFull<<Axis as NeuraCombineInputs<Data>>::Combined, Output = Data>,
     > NeuraGraphNodeEval<Data> for NeuraGraphNode<Axis, Layer>
+where
+    Layer::IntermediaryRepr: 'static,
+    Axis::Combined: 'static,
 {
     fn eval<'a>(&'a self, inputs: &[Data]) -> Data {
         // TODO: use to_vec_in?
         let combined = self.axis.combine(inputs.to_vec());
         self.layer.eval(&combined)
     }
-}
 
-impl<Layer: Clone + Debug> From<Layer> for NeuraGraphNode<NeuraAxisDefault, Layer> {
-    fn from(layer: Layer) -> Self {
-        Self {
-            inputs: vec![],
-            axis: NeuraAxisDefault,
-            layer,
-            name: random_name(),
-        }
+    fn eval_training<'a>(&self, inputs: &[Data]) -> (Data, Box<dyn Any>) {
+        let combined = self.axis.combine(inputs.to_vec());
+        let (result, layer_intermediary) = self.layer.eval_training(&combined);
+
+        let intermediary: Intermediary<Axis::Combined, Layer> = Intermediary {
+            combined,
+            layer_intermediary,
+        };
+
+        (result, Box::new(intermediary))
+    }
+
+    fn backprop(&self, intermediary: &dyn Any, epsilon_in: &Data) -> Vec<Data> {
+        let intermediary = self.downcast_intermediary(intermediary);
+
+        let epsilon_out = self.layer.backprop_layer(
+            &intermediary.combined,
+            &intermediary.layer_intermediary,
+            epsilon_in,
+        );
+
+        self.axis
+            .split(&epsilon_out, self.input_shapes.as_ref().unwrap())
+    }
+
+    fn get_gradient(
+        &self,
+        intermediary: &dyn Any,
+        epsilon_in: &Data,
+    ) -> Box<dyn NeuraDynVectorSpace> {
+        let intermediary = self.downcast_intermediary(intermediary);
+
+        Box::new(self.layer.get_gradient(
+            &intermediary.combined,
+            &intermediary.layer_intermediary,
+            epsilon_in,
+        ))
+    }
+
+    fn apply_gradient(&mut self, gradient: &dyn NeuraDynVectorSpace) {
+        self.layer.apply_gradient(
+            gradient
+                .into_any()
+                .downcast_ref::<Layer::Gradient>()
+                .expect("Invalid gradient type passed to NeuraGraphNode::apply_gradient"),
+        );
     }
 }
 
@@ -95,12 +188,10 @@ impl<
         Layer: NeuraPartialLayer + Clone + Debug,
     > NeuraGraphNodePartial<Data> for NeuraGraphNode<Axis, Layer>
 where
-    Layer::Constructed: NeuraShapedLayer
-        + NeuraLayer<<Axis as NeuraCombineInputs<Data>>::Combined, Output = Data>
-        + Clone
-        + Debug
-        + 'static,
+    Layer::Constructed: NeuraTrainableLayerFull<<Axis as NeuraCombineInputs<Data>>::Combined, Output = Data>,
     Layer::Err: Debug,
+    <Layer::Constructed as NeuraTrainableLayerEval<<Axis as NeuraCombineInputs<Data>>::Combined>>::IntermediaryRepr: 'static,
+    <Axis as NeuraCombineInputs<Data>>::Combined: 'static,
 {
     fn inputs<'a>(&'a self) -> &'a [String] {
         &self.inputs
@@ -116,7 +207,7 @@ where
     ) -> Result<(Box<dyn NeuraGraphNodeEval<Data>>, NeuraShape), String> {
         let combined = self
             .axis
-            .combine(input_shapes)
+            .combine(input_shapes.clone())
             .map_err(|err| format!("{:?}", err))?;
 
         let constructed_layer = self
@@ -132,6 +223,7 @@ where
                 axis: self.axis.clone(),
                 layer: constructed_layer,
                 name: self.name.clone(),
+                input_shapes: Some(input_shapes)
             }),
             output_shape,
         ))

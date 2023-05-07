@@ -1,4 +1,11 @@
-use crate::{layer::NeuraShapedLayer, prelude::*};
+use std::any::Any;
+
+use crate::{
+    algebra::NeuraDynVectorSpace,
+    derivable::NeuraLoss,
+    layer::{NeuraShapedLayer, NeuraTrainableLayerEval},
+    prelude::*,
+};
 
 mod node;
 pub use node::*;
@@ -7,9 +14,36 @@ mod partial;
 pub use partial::NeuraGraphPartial;
 
 mod from;
+pub use from::FromSequential;
+
+pub trait NeuraTrainableLayerFull<Input>:
+    NeuraTrainableLayerEval<Input>
+    + NeuraTrainableLayerBackprop<Input>
+    + NeuraTrainableLayerSelf<Input>
+    + NeuraShapedLayer
+    + Clone
+    + std::fmt::Debug
+    + 'static
+where
+    Self::IntermediaryRepr: 'static,
+{
+}
+
+impl<Input, T> NeuraTrainableLayerFull<Input> for T
+where
+    T: NeuraTrainableLayerEval<Input>
+        + NeuraTrainableLayerBackprop<Input>
+        + NeuraTrainableLayerSelf<Input>
+        + NeuraShapedLayer
+        + Clone
+        + std::fmt::Debug
+        + 'static,
+    T::IntermediaryRepr: 'static,
+{
+}
 
 #[derive(Debug)]
-struct NeuraGraphNodeConstructed<Data> {
+pub struct NeuraGraphNodeConstructed<Data> {
     node: Box<dyn NeuraGraphNodeEval<Data>>,
     inputs: Vec<usize>,
     output: usize,
@@ -48,10 +82,12 @@ impl<Data> NeuraGraph<Data> {
         res
     }
 
-    fn eval_in(&self, input: &Data, buffer: &mut Vec<Option<Data>>)
+    fn eval_in(&self, input: &Data, buffer: &mut [Option<Data>])
     where
         Data: Clone,
     {
+        assert!(buffer.len() >= self.nodes.len());
+
         buffer[0] = Some(input.clone());
 
         for node in self.nodes.iter() {
@@ -67,6 +103,77 @@ impl<Data> NeuraGraph<Data> {
                 .collect();
             let result = node.node.eval(&inputs);
             buffer[node.output] = Some(result);
+        }
+    }
+
+    fn backprop_in<Loss, Target>(
+        &self,
+        input: &Data,
+        loss: Loss,
+        target: &Target,
+        output_buffer: &mut Vec<Option<Data>>,
+        backprop_buffer: &mut Vec<Option<Data>>,
+        intermediary_buffer: &mut Vec<Option<Box<dyn Any>>>,
+        gradient_buffer: &mut Vec<Box<dyn NeuraDynVectorSpace>>,
+    ) where
+        Data: Clone + std::ops::Add<Data, Output = Data>,
+        Loss: NeuraLoss<Data, Target = Target>,
+    {
+        assert!(output_buffer.len() >= self.nodes.len());
+        assert!(backprop_buffer.len() >= self.nodes.len());
+        assert!(intermediary_buffer.len() >= self.nodes.len());
+        assert!(gradient_buffer.len() >= self.nodes.len());
+
+        output_buffer[0] = Some(input.clone());
+
+        // Forward pass
+        for node in self.nodes.iter() {
+            // PERF: re-use the allocation for `inputs`, and `.take()` the elements only needed once?
+            let inputs: Vec<_> = node
+                .inputs
+                .iter()
+                .map(|&i| {
+                    output_buffer[i]
+                        .clone()
+                        .expect("Unreachable: output of previous layer was not set")
+                })
+                .collect();
+            let (result, intermediary) = node.node.eval_training(&inputs);
+
+            output_buffer[node.output] = Some(result);
+            intermediary_buffer[node.output] = Some(intermediary);
+        }
+
+        let loss = loss.nabla(
+            target,
+            output_buffer[self.output_index]
+                .as_ref()
+                .expect("Unreachable: output was not set"),
+        );
+        backprop_buffer[self.output_index] = Some(loss);
+
+        // Backward pass
+        for node in self.nodes.iter().rev() {
+            let Some(epsilon_in) = backprop_buffer[node.output].take() else {
+                continue
+            };
+
+            let epsilon_out = node
+                .node
+                .backprop(&intermediary_buffer[node.output], &epsilon_in);
+            let gradient = node
+                .node
+                .get_gradient(&intermediary_buffer[node.output], &epsilon_in);
+
+            gradient_buffer[node.output].add_assign(&*gradient);
+
+            for (&input, epsilon) in node.inputs.iter().zip(epsilon_out.into_iter()) {
+                if let Some(existing_gradient) = backprop_buffer[input].take() {
+                    backprop_buffer[input] = Some(existing_gradient + epsilon);
+                } else {
+                    backprop_buffer[input] = Some(epsilon);
+                }
+            }
         }
     }
 }
@@ -213,7 +320,7 @@ mod test {
         .construct(NeuraShape::Vector(3))
         .unwrap();
 
-        let graph = NeuraGraph::from(network.clone());
+        let graph = NeuraGraph::from_sequential(network.clone(), NeuraShape::Vector(3));
 
         for _ in 0..10 {
             let input = uniform_vector(3);

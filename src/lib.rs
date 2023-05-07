@@ -1,11 +1,11 @@
 pub mod algebra;
 pub mod derivable;
+pub mod err;
 pub mod gradient_solver;
 pub mod layer;
 pub mod network;
 pub mod train;
 
-pub mod err;
 mod utils;
 
 // TODO: move to a different file

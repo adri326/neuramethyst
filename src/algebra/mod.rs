@@ -1,4 +1,6 @@
 mod matrix;
+use std::any::Any;
+
 pub use matrix::NeuraMatrix;
 
 mod vector;
@@ -15,6 +17,39 @@ pub trait NeuraVectorSpace {
     // fn zero() -> Self;
 
     fn norm_squared(&self) -> f64;
+}
+
+pub trait NeuraDynVectorSpace {
+    fn add_assign(&mut self, other: &dyn NeuraDynVectorSpace);
+
+    fn mul_assign(&mut self, by: f64);
+
+    fn norm_squared(&self) -> f64;
+
+    /// Trampoline for allowing NeuraDynVectorSpace to be cast back into a known type for add_assign
+    fn into_any(&self) -> &dyn Any;
+}
+
+impl<T: NeuraVectorSpace + 'static> NeuraDynVectorSpace for T {
+    fn add_assign(&mut self, other: &dyn NeuraDynVectorSpace) {
+        let Some(other) = other.into_any().downcast_ref::<Self>() else {
+            panic!("Incompatible operand: expected other to be equal to self");
+        };
+
+        <Self as NeuraVectorSpace>::add_assign(self, other);
+    }
+
+    fn mul_assign(&mut self, by: f64) {
+        <Self as NeuraVectorSpace>::mul_assign(self, by);
+    }
+
+    fn norm_squared(&self) -> f64 {
+        <Self as NeuraVectorSpace>::norm_squared(self)
+    }
+
+    fn into_any(&self) -> &dyn Any {
+        self
+    }
 }
 
 impl NeuraVectorSpace for () {
