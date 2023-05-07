@@ -4,6 +4,8 @@ use nalgebra::{Const, DVector, Dyn, Scalar, VecStorage};
 
 use crate::{err::NeuraAxisErr, prelude::NeuraShape};
 
+// TODO: create a NeuraAxis trait
+
 #[derive(Clone, Copy, Debug)]
 pub struct NeuraAxisAppend;
 
@@ -34,6 +36,7 @@ impl<F: Clone> NeuraCombineInputs<DVector<F>> for NeuraAxisAppend {
     }
 }
 
+// TODO: use another trait for combining NeuraShape, or make it another member of the trait
 impl NeuraCombineInputs<NeuraShape> for NeuraAxisAppend {
     type Combined = Result<NeuraShape, NeuraAxisErr>;
 
@@ -78,5 +81,39 @@ impl<F: Clone + Scalar + Default> NeuraSplitInputs<DVector<F>> for NeuraAxisAppe
         }
 
         result
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct NeuraAxisDefault;
+
+impl<F: Clone> NeuraCombineInputs<DVector<F>> for NeuraAxisDefault {
+    type Combined = DVector<F>;
+
+    fn combine(&self, inputs: Vec<impl Borrow<DVector<F>>>) -> Self::Combined {
+        assert!(inputs.len() == 1);
+
+        inputs[0].borrow().clone()
+    }
+}
+
+impl NeuraCombineInputs<NeuraShape> for NeuraAxisDefault {
+    type Combined = Result<NeuraShape, NeuraAxisErr>;
+
+    fn combine(&self, inputs: Vec<impl Borrow<NeuraShape>>) -> Self::Combined {
+        if inputs.len() != 1 {
+            Err(NeuraAxisErr::InvalidAmount(inputs.len(), 1, Some(1)))
+        } else {
+            Ok(*inputs[0].borrow())
+        }
+    }
+}
+
+impl<Data: Clone> NeuraSplitInputs<Data> for NeuraAxisDefault
+where
+    NeuraAxisDefault: NeuraCombineInputs<Data, Combined = Data>,
+{
+    fn split(&self, combined: &Self::Combined, _input_shapes: &[NeuraShape]) -> Vec<Data> {
+        vec![combined.clone()]
     }
 }

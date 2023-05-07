@@ -1,14 +1,15 @@
 use dyn_clone::DynClone;
+use std::fmt::Debug;
 
 use crate::{
     err::NeuraAxisErr,
     layer::{NeuraLayer, NeuraShapedLayer},
-    network::residual::{NeuraCombineInputs, NeuraSplitInputs},
+    network::residual::{NeuraAxisDefault, NeuraCombineInputs, NeuraSplitInputs},
     prelude::{NeuraPartialLayer, NeuraShape},
 };
 
 // TODO: split into two  traits
-pub trait NeuraGraphNodePartial<Data>: DynClone + std::fmt::Debug {
+pub trait NeuraGraphNodePartial<Data>: DynClone + Debug {
     fn inputs<'a>(&'a self) -> &'a [String];
     fn name<'a>(&'a self) -> &'a str;
 
@@ -18,7 +19,7 @@ pub trait NeuraGraphNodePartial<Data>: DynClone + std::fmt::Debug {
     ) -> Result<(Box<dyn NeuraGraphNodeEval<Data>>, NeuraShape), String>;
 }
 
-pub trait NeuraGraphNodeEval<Data>: DynClone + std::fmt::Debug {
+pub trait NeuraGraphNodeEval<Data>: DynClone + Debug {
     fn eval<'a>(&'a self, inputs: &[Data]) -> Data;
 }
 
@@ -46,15 +47,15 @@ impl<Axis, Layer> NeuraGraphNode<Axis, Layer> {
         Axis: NeuraSplitInputs<Data>
             + NeuraCombineInputs<NeuraShape, Combined = Result<NeuraShape, NeuraAxisErr>>
             + Clone
-            + std::fmt::Debug
+            + Debug
             + 'static,
-        Layer: NeuraPartialLayer + Clone + std::fmt::Debug + 'static,
+        Layer: NeuraPartialLayer + Clone + Debug + 'static,
         Layer::Constructed: NeuraShapedLayer
             + NeuraLayer<<Axis as NeuraCombineInputs<Data>>::Combined, Output = Data>
             + Clone
-            + std::fmt::Debug
+            + Debug
             + 'static,
-        Layer::Err: std::fmt::Debug,
+        Layer::Err: Debug,
     {
         Box::new(self)
     }
@@ -62,10 +63,8 @@ impl<Axis, Layer> NeuraGraphNode<Axis, Layer> {
 
 impl<
         Data: Clone,
-        Axis: NeuraSplitInputs<Data> + Clone + std::fmt::Debug,
-        Layer: NeuraLayer<<Axis as NeuraCombineInputs<Data>>::Combined, Output = Data>
-            + Clone
-            + std::fmt::Debug,
+        Axis: NeuraSplitInputs<Data> + Clone + Debug,
+        Layer: NeuraLayer<<Axis as NeuraCombineInputs<Data>>::Combined, Output = Data> + Clone + Debug,
     > NeuraGraphNodeEval<Data> for NeuraGraphNode<Axis, Layer>
 {
     fn eval<'a>(&'a self, inputs: &[Data]) -> Data {
@@ -75,22 +74,33 @@ impl<
     }
 }
 
+impl<Layer: Clone + Debug> From<Layer> for NeuraGraphNode<NeuraAxisDefault, Layer> {
+    fn from(layer: Layer) -> Self {
+        Self {
+            inputs: vec![],
+            axis: NeuraAxisDefault,
+            layer,
+            name: random_name(),
+        }
+    }
+}
+
 impl<
         Data: Clone,
         Axis: NeuraSplitInputs<Data>
             + NeuraCombineInputs<NeuraShape, Combined = Result<NeuraShape, NeuraAxisErr>>
             + Clone
-            + std::fmt::Debug
+            + Debug
             + 'static,
-        Layer: NeuraPartialLayer + Clone + std::fmt::Debug,
+        Layer: NeuraPartialLayer + Clone + Debug,
     > NeuraGraphNodePartial<Data> for NeuraGraphNode<Axis, Layer>
 where
     Layer::Constructed: NeuraShapedLayer
         + NeuraLayer<<Axis as NeuraCombineInputs<Data>>::Combined, Output = Data>
         + Clone
-        + std::fmt::Debug
+        + Debug
         + 'static,
-    Layer::Err: std::fmt::Debug,
+    Layer::Err: Debug,
 {
     fn inputs<'a>(&'a self) -> &'a [String] {
         &self.inputs
@@ -126,4 +136,21 @@ where
             output_shape,
         ))
     }
+}
+
+pub fn random_name() -> String {
+    use rand::Rng;
+    use std::fmt::Write;
+
+    let mut res = String::with_capacity(10);
+    write!(&mut res, "value_").unwrap();
+
+    let mut rng = rand::thread_rng();
+
+    for _ in 0..4 {
+        let ch = char::from_u32(rng.gen_range((b'a' as u32)..(b'z' as u32))).unwrap();
+        write!(&mut res, "{}", ch).unwrap();
+    }
+
+    res
 }

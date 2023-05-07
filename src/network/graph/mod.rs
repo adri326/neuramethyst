@@ -1,131 +1,12 @@
-#![allow(dead_code)] // TODO: remove this
-
-use std::collections::{HashMap, HashSet, VecDeque};
-
-use crate::prelude::*;
-use crate::{err::NeuraGraphErr, layer::NeuraShapedLayer};
+use crate::{layer::NeuraShapedLayer, prelude::*};
 
 mod node;
 pub use node::*;
 
-pub struct NeuraGraphPartial<Data> {
-    pub nodes: Vec<Box<dyn NeuraGraphNodePartial<Data>>>,
-    pub output: String,
-    pub input: String,
-}
+mod partial;
+pub use partial::NeuraGraphPartial;
 
-#[derive(Clone, Debug, Copy, PartialEq, Eq, Hash)]
-enum GraphIndex {
-    Input,
-    Node(usize),
-}
-
-impl<Data> NeuraGraphPartial<Data> {
-    fn get_index_map(&self) -> Result<HashMap<String, GraphIndex>, NeuraGraphErr> {
-        let mut result = HashMap::with_capacity(self.nodes.len());
-
-        result.insert(self.input.clone(), GraphIndex::Input);
-
-        for (index, node) in self.nodes.iter().enumerate() {
-            if result.contains_key(node.name()) {
-                return Err(NeuraGraphErr::InvalidName(node.name().to_string()));
-            }
-            result.insert(node.name().to_string(), GraphIndex::Node(index));
-        }
-
-        Ok(result)
-    }
-
-    fn get_reverse_graph(
-        &self,
-        index_map: &HashMap<String, GraphIndex>,
-    ) -> Result<HashMap<GraphIndex, HashSet<GraphIndex>>, NeuraGraphErr> {
-        let mut result = HashMap::new();
-
-        result.insert(GraphIndex::Input, HashSet::new());
-
-        for i in 0..self.nodes.len() {
-            result.insert(GraphIndex::Node(i), HashSet::new());
-        }
-
-        for (index, node) in self.nodes.iter().enumerate() {
-            for input in node.inputs() {
-                let input_index = index_map
-                    .get(input)
-                    .copied()
-                    .ok_or_else(|| NeuraGraphErr::MissingNode(input.clone()))?;
-                result
-                    .get_mut(&input_index)
-                    .expect("index_map returned invalid values")
-                    .insert(GraphIndex::Node(index));
-            }
-        }
-
-        Ok(result)
-    }
-
-    fn get_node_order(
-        &self,
-        index_map: &HashMap<String, GraphIndex>,
-        reverse_graph: &HashMap<GraphIndex, HashSet<GraphIndex>>,
-    ) -> Result<Vec<usize>, NeuraGraphErr> {
-        let mut result: Vec<usize> = Vec::new();
-        let mut closed: HashSet<GraphIndex> = HashSet::with_capacity(self.nodes.len());
-        let mut open = VecDeque::with_capacity(self.nodes.len());
-        open.push_front(GraphIndex::Input);
-
-        /*
-        index_map.get(&self.output)
-            .copied()
-            .ok_or_else(|| NeuraGraphErr::MissingNode(self.output.clone()))?
-        */
-
-        while let Some(current) = open.pop_back() {
-            if closed.contains(&current) {
-                continue;
-            }
-
-            closed.insert(current);
-            // Do not put 0 (the input) in result
-            if let GraphIndex::Node(index) = current {
-                result.push(index);
-            }
-
-            println!("{:?}", current);
-
-            for next_node in reverse_graph[&current].iter().copied() {
-                // Ignore nodes that are already in the closed set
-                if closed.contains(&next_node) {
-                    continue;
-                }
-
-                let GraphIndex::Node(node_index) = next_node else {
-                    panic!("Unreachable: cannot have GraphIndex::Input as the output of a node");
-                };
-
-                let inputs = self.nodes[node_index].inputs();
-
-                // Only consider nodes whose inputs are in the closed set (meaning they would be ready to be evaluated)
-                if !inputs
-                    .iter()
-                    .all(|input| closed.contains(&index_map[input]))
-                {
-                    continue;
-                }
-
-                open.push_front(next_node);
-            }
-        }
-
-        if result.len() != self.nodes.len() {
-            // TODO: verify that if result.len() != self.nodes.len(), then there is a cyclic subgraph
-
-            return Err(NeuraGraphErr::Cyclic);
-        }
-
-        Ok(result)
-    }
-}
+mod from;
 
 #[derive(Debug)]
 struct NeuraGraphNodeConstructed<Data> {
@@ -143,7 +24,7 @@ pub struct NeuraGraph<Data> {
     /// - `nodes[0].inputs = [0]`
     nodes: Vec<NeuraGraphNodeConstructed<Data>>,
 
-    input_shape: NeuraShape,
+    // input_shape: NeuraShape,
     output_shape: NeuraShape,
 
     output_index: usize,
@@ -156,82 +37,57 @@ impl<Data> NeuraShapedLayer for NeuraGraph<Data> {
     }
 }
 
-impl<Data> NeuraPartialLayer for NeuraGraphPartial<Data> {
-    type Constructed = NeuraGraph<Data>;
+impl<Data> NeuraGraph<Data> {
+    fn create_buffer(&self) -> Vec<Option<Data>> {
+        let mut res = Vec::with_capacity(self.buffer_size);
 
-    type Err = NeuraGraphErr;
-
-    fn construct(self, input_shape: NeuraShape) -> Result<Self::Constructed, Self::Err> {
-        let index_map = self.get_index_map()?;
-        let reverse_graph = self.get_reverse_graph(&index_map)?;
-
-        // List out the nodes in their execution order
-        let node_order = self.get_node_order(&index_map, &reverse_graph)?;
-        let mut new_index_map: HashMap<String, usize> = HashMap::from_iter(
-            node_order
-                .iter()
-                .map(|&i| (self.nodes[i].name().to_string(), i)),
-        );
-        new_index_map.insert(self.input.clone(), 0);
-
-        // TODO: filter out the nodes that are not necessary for computing the result (BFS from the output node back to the inputs)
-        // A temporary solution can be to trim the graph
-        let output_index = new_index_map
-            .get(&self.output)
-            .copied()
-            .ok_or_else(|| NeuraGraphErr::MissingNode(self.output.clone()))?;
-
-        let mut nodes = Vec::with_capacity(self.nodes.len());
-        let mut shapes: Vec<Option<NeuraShape>> = vec![None; self.nodes.len() + 1];
-        shapes[0] = Some(input_shape);
-
-        for index in node_order.into_iter() {
-            let node = &*self.nodes[index];
-            let node_inputs = node.inputs();
-            let mut inputs = Vec::with_capacity(node_inputs.len());
-            let mut input_shapes = Vec::with_capacity(node_inputs.len());
-
-            for input in node_inputs {
-                let input_index = new_index_map.get(input).copied().expect(
-                    "Unreachable: new_index_map should contain all nodes defined and all nodes should have existing nodes as input"
-                );
-                inputs.push(input_index);
-                input_shapes.push(shapes[input_index].expect(
-                    "Unreachable: the order of execution should guarantee that all inputs have appeared before")
-                );
-            }
-
-            let (constructed, output_shape) = node
-                .construct(input_shapes)
-                .map_err(|e| NeuraGraphErr::LayerErr(e))?;
-
-            shapes[index] = Some(output_shape);
-
-            nodes.push(NeuraGraphNodeConstructed {
-                node: constructed,
-                inputs,
-                output: new_index_map
-                    .get(node.name())
-                    .copied()
-                    .unwrap_or_else(|| unreachable!()),
-            });
+        for _ in 0..self.buffer_size {
+            res.push(None);
         }
 
-        let output_shape = shapes[output_index].unwrap_or_else(|| unreachable!());
+        res
+    }
 
-        Ok(NeuraGraph {
-            nodes,
-            input_shape,
-            output_shape,
-            output_index,
-            buffer_size: self.nodes.len() + 1,
-        })
+    fn eval_in(&self, input: &Data, buffer: &mut Vec<Option<Data>>)
+    where
+        Data: Clone,
+    {
+        buffer[0] = Some(input.clone());
+
+        for node in self.nodes.iter() {
+            // PERF: re-use the allocation for `inputs`, and `.take()` the elements only needed once?
+            let inputs: Vec<_> = node
+                .inputs
+                .iter()
+                .map(|&i| {
+                    buffer[i]
+                        .clone()
+                        .expect("Unreachable: output of previous layer was not set")
+                })
+                .collect();
+            let result = node.node.eval(&inputs);
+            buffer[node.output] = Some(result);
+        }
+    }
+}
+
+impl<Data: Clone> NeuraLayer<Data> for NeuraGraph<Data> {
+    type Output = Data;
+
+    fn eval(&self, input: &Data) -> Self::Output {
+        let mut buffer = self.create_buffer();
+
+        self.eval_in(input, &mut buffer);
+
+        buffer[self.output_index]
+            .take()
+            .expect("Unreachable: output was not set")
     }
 }
 
 #[cfg(test)]
 mod test {
-    use crate::network::residual::NeuraAxisAppend;
+    use crate::{err::NeuraGraphErr, network::residual::NeuraAxisAppend, utils::uniform_vector};
 
     use super::*;
 
@@ -345,5 +201,28 @@ mod test {
             constructed.unwrap_err(),
             NeuraGraphErr::MissingNode(String::from("missing"))
         );
+    }
+
+    #[test]
+    fn test_eval_equal_sequential() {
+        let network = neura_sequential![
+            neura_layer!("dense", 4, f64),
+            neura_layer!("dense", 2, f64),
+            neura_layer!("softmax")
+        ]
+        .construct(NeuraShape::Vector(3))
+        .unwrap();
+
+        let graph = NeuraGraph::from(network.clone());
+
+        for _ in 0..10 {
+            let input = uniform_vector(3);
+            let seq_result = network.eval(&input);
+            let graph_result = graph.eval(&input);
+
+            assert_eq!(seq_result.shape(), graph_result.shape());
+            approx::assert_relative_eq!(seq_result[0], graph_result[0]);
+            approx::assert_relative_eq!(seq_result[1], graph_result[1]);
+        }
     }
 }

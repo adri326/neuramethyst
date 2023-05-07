@@ -71,6 +71,7 @@ pub enum NeuraIsolateLayerErr {
 pub enum NeuraAxisErr {
     NoInput,
     ConflictingShape(NeuraShape, NeuraShape),
+    InvalidAmount(usize, usize, Option<usize>),
 }
 
 #[derive(Clone, Debug)]
