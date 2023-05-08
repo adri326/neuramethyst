@@ -70,7 +70,7 @@ impl NeuraBatchedTrainer {
     pub fn train<
         Input: Clone,
         Target: Clone,
-        Network: NeuraTrainableLayerBase + NeuraTrainableLayerSelf<Input>,
+        Network: NeuraLayer<Input>,
         GradientSolver: NeuraGradientSolver<Input, Target, Network>,
         Inputs: IntoIterator<Item = (Input, Target)>,
     >(

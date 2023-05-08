@@ -35,13 +35,7 @@ impl<R: Rng> NeuraDropoutLayer<R> {
     }
 }
 
-impl<R: Rng> NeuraShapedLayer for NeuraDropoutLayer<R> {
-    fn output_shape(&self) -> NeuraShape {
-        self.shape
-    }
-}
-
-impl<R: Rng> NeuraPartialLayer for NeuraDropoutLayer<R> {
+impl<R: Rng + Clone + std::fmt::Debug + 'static> NeuraPartialLayer for NeuraDropoutLayer<R> {
     type Constructed = NeuraDropoutLayer<R>;
 
     type Err = ();
@@ -53,25 +47,15 @@ impl<R: Rng> NeuraPartialLayer for NeuraDropoutLayer<R> {
     }
 }
 
-impl<R: Rng, F: Float> NeuraLayer<DVector<F>> for NeuraDropoutLayer<R> {
-    type Output = DVector<F>;
-
-    fn eval(&self, input: &DVector<F>) -> Self::Output {
-        let mut output = input.clone();
-        self.apply_dropout(&mut output);
-        output
-    }
-}
-
-impl<R: Rng> NeuraTrainableLayerBase for NeuraDropoutLayer<R> {
+impl<R: Rng + Clone + std::fmt::Debug + 'static> NeuraLayerBase for NeuraDropoutLayer<R> {
     type Gradient = ();
 
     fn default_gradient(&self) -> Self::Gradient {
         ()
     }
 
-    fn apply_gradient(&mut self, _gradient: &Self::Gradient) {
-        // Noop
+    fn output_shape(&self) -> NeuraShape {
+        self.shape
     }
 
     fn prepare_layer(&mut self, is_training: bool) {
@@ -98,30 +82,19 @@ impl<R: Rng> NeuraTrainableLayerBase for NeuraDropoutLayer<R> {
     }
 }
 
-impl<R: Rng, F: Float> NeuraTrainableLayerEval<DVector<F>> for NeuraDropoutLayer<R> {
+impl<R: Rng + Clone + std::fmt::Debug + 'static, F: Float> NeuraLayer<DVector<F>>
+    for NeuraDropoutLayer<R>
+{
+    type Output = DVector<F>;
+
     type IntermediaryRepr = ();
 
     fn eval_training(&self, input: &DVector<F>) -> (Self::Output, Self::IntermediaryRepr) {
-        (self.eval(input), ())
-    }
-}
-
-impl<R: Rng, F: Float> NeuraTrainableLayerSelf<DVector<F>> for NeuraDropoutLayer<R> {
-    fn regularize_layer(&self) -> Self::Gradient {
-        ()
+        let mut output = input.clone();
+        self.apply_dropout(&mut output);
+        (output, ())
     }
 
-    fn get_gradient(
-        &self,
-        _input: &DVector<F>,
-        _intermediary: &Self::IntermediaryRepr,
-        _epsilon: &Self::Output,
-    ) -> Self::Gradient {
-        ()
-    }
-}
-
-impl<R: Rng, F: Float> NeuraTrainableLayerBackprop<DVector<F>> for NeuraDropoutLayer<R> {
     fn backprop_layer(
         &self,
         _input: &DVector<F>,

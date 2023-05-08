@@ -4,7 +4,6 @@ use std::{any::Any, fmt::Debug};
 use crate::{
     algebra::NeuraDynVectorSpace,
     err::NeuraAxisErr,
-    layer::{NeuraShapedLayer, NeuraTrainableLayerEval},
     network::residual::{NeuraAxisDefault, NeuraCombineInputs, NeuraSplitInputs},
     prelude::{NeuraPartialLayer, NeuraShape},
 };
@@ -81,9 +80,9 @@ impl<Axis, Layer> NeuraGraphNode<Axis, Layer> {
             + 'static,
         Layer: NeuraPartialLayer + Clone + Debug + 'static,
         Layer::Constructed:
-            NeuraTrainableLayerFull<<Axis as NeuraCombineInputs<Data>>::Combined, Output = Data>,
+            NeuraLayer<<Axis as NeuraCombineInputs<Data>>::Combined, Output = Data>,
         Layer::Err: Debug,
-        <Layer::Constructed as NeuraTrainableLayerEval<
+        <Layer::Constructed as NeuraLayer<
             <Axis as NeuraCombineInputs<Data>>::Combined,
         >>::IntermediaryRepr: 'static,
         <Axis as NeuraCombineInputs<Data>>::Combined: 'static,
@@ -97,7 +96,7 @@ impl<Axis, Layer> NeuraGraphNode<Axis, Layer> {
     ) -> &'a Intermediary<Axis::Combined, Layer>
     where
         Axis: NeuraCombineInputs<Data>,
-        Layer: NeuraTrainableLayerFull<Axis::Combined>,
+        Layer: NeuraLayer<Axis::Combined>,
         Axis::Combined: 'static,
     {
         intermediary
@@ -106,7 +105,7 @@ impl<Axis, Layer> NeuraGraphNode<Axis, Layer> {
     }
 }
 
-struct Intermediary<Combined, Layer: NeuraTrainableLayerFull<Combined>>
+struct Intermediary<Combined, Layer: NeuraLayer<Combined>>
 where
     Layer::IntermediaryRepr: 'static,
 {
@@ -117,7 +116,7 @@ where
 impl<
         Data: Clone,
         Axis: NeuraSplitInputs<Data> + Clone + Debug,
-        Layer: NeuraTrainableLayerFull<<Axis as NeuraCombineInputs<Data>>::Combined, Output = Data>,
+        Layer: NeuraLayer<<Axis as NeuraCombineInputs<Data>>::Combined, Output = Data>,
     > NeuraGraphNodeEval<Data> for NeuraGraphNode<Axis, Layer>
 where
     Layer::IntermediaryRepr: 'static,
@@ -188,9 +187,9 @@ impl<
         Layer: NeuraPartialLayer + Clone + Debug,
     > NeuraGraphNodePartial<Data> for NeuraGraphNode<Axis, Layer>
 where
-    Layer::Constructed: NeuraTrainableLayerFull<<Axis as NeuraCombineInputs<Data>>::Combined, Output = Data>,
+    Layer::Constructed: NeuraLayer<<Axis as NeuraCombineInputs<Data>>::Combined, Output = Data>,
     Layer::Err: Debug,
-    <Layer::Constructed as NeuraTrainableLayerEval<<Axis as NeuraCombineInputs<Data>>::Combined>>::IntermediaryRepr: 'static,
+    <Layer::Constructed as NeuraLayer<<Axis as NeuraCombineInputs<Data>>::Combined>>::IntermediaryRepr: 'static,
     <Axis as NeuraCombineInputs<Data>>::Combined: 'static,
 {
     fn inputs<'a>(&'a self) -> &'a [String] {

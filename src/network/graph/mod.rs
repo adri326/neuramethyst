@@ -1,10 +1,7 @@
 use std::any::Any;
 
 use crate::{
-    algebra::NeuraDynVectorSpace,
-    derivable::NeuraLoss,
-    layer::{NeuraShapedLayer, NeuraTrainableLayerEval},
-    prelude::*,
+    algebra::NeuraDynVectorSpace, derivable::NeuraLoss, layer::NeuraLayerBase, prelude::*,
 };
 
 mod node;
@@ -16,31 +13,10 @@ pub use partial::NeuraGraphPartial;
 mod from;
 pub use from::FromSequential;
 
-pub trait NeuraTrainableLayerFull<Input>:
-    NeuraTrainableLayerEval<Input>
-    + NeuraTrainableLayerBackprop<Input>
-    + NeuraTrainableLayerSelf<Input>
-    + NeuraShapedLayer
-    + Clone
-    + std::fmt::Debug
-    + 'static
-where
-    Self::IntermediaryRepr: 'static,
-{
-}
+#[deprecated]
+pub trait NeuraTrainableLayerFull<Input>: NeuraLayer<Input> {}
 
-impl<Input, T> NeuraTrainableLayerFull<Input> for T
-where
-    T: NeuraTrainableLayerEval<Input>
-        + NeuraTrainableLayerBackprop<Input>
-        + NeuraTrainableLayerSelf<Input>
-        + NeuraShapedLayer
-        + Clone
-        + std::fmt::Debug
-        + 'static,
-    T::IntermediaryRepr: 'static,
-{
-}
+impl<Input, T> NeuraTrainableLayerFull<Input> for T where T: NeuraLayer<Input> {}
 
 #[derive(Debug)]
 pub struct NeuraGraphNodeConstructed<Data> {
@@ -49,7 +25,17 @@ pub struct NeuraGraphNodeConstructed<Data> {
     output: usize,
 }
 
-#[derive(Debug)]
+impl<Data> Clone for NeuraGraphNodeConstructed<Data> {
+    fn clone(&self) -> Self {
+        Self {
+            node: dyn_clone::clone_box(&*self.node),
+            inputs: self.inputs.clone(),
+            output: self.output.clone(),
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct NeuraGraph<Data> {
     /// ## Class invariants
     ///
@@ -65,9 +51,15 @@ pub struct NeuraGraph<Data> {
     buffer_size: usize,
 }
 
-impl<Data> NeuraShapedLayer for NeuraGraph<Data> {
+impl<Data: Clone + std::fmt::Debug + 'static> NeuraLayerBase for NeuraGraph<Data> {
+    type Gradient = ();
+
     fn output_shape(&self) -> NeuraShape {
         self.output_shape
+    }
+
+    fn default_gradient(&self) -> Self::Gradient {
+        unimplemented!("NeuraGraph cannot be used as a layer yet")
     }
 }
 
@@ -178,8 +170,9 @@ impl<Data> NeuraGraph<Data> {
     }
 }
 
-impl<Data: Clone> NeuraLayer<Data> for NeuraGraph<Data> {
+impl<Data: Clone + std::fmt::Debug + 'static> NeuraLayer<Data> for NeuraGraph<Data> {
     type Output = Data;
+    type IntermediaryRepr = ();
 
     fn eval(&self, input: &Data) -> Self::Output {
         let mut buffer = self.create_buffer();
@@ -189,6 +182,21 @@ impl<Data: Clone> NeuraLayer<Data> for NeuraGraph<Data> {
         buffer[self.output_index]
             .take()
             .expect("Unreachable: output was not set")
+    }
+
+    #[allow(unused)]
+    fn eval_training(&self, input: &Data) -> (Self::Output, Self::IntermediaryRepr) {
+        unimplemented!("NeuraGraph cannot be used as a trainable layer yet");
+    }
+
+    #[allow(unused)]
+    fn backprop_layer(
+        &self,
+        input: &Data,
+        intermediary: &Self::IntermediaryRepr,
+        epsilon: &Self::Output,
+    ) -> Data {
+        unimplemented!("NeuraGraph cannot be used as a trainable layer yet");
     }
 }
 

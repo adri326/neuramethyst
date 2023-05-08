@@ -24,12 +24,6 @@ impl NeuraIsolateLayer {
     }
 }
 
-impl NeuraShapedLayer for NeuraIsolateLayer {
-    fn output_shape(&self) -> NeuraShape {
-        self.end.sub(self.start).unwrap_or_else(|| unreachable!())
-    }
-}
-
 impl NeuraPartialLayer for NeuraIsolateLayer {
     type Constructed = NeuraIsolateLayer;
     type Err = NeuraIsolateLayerErr;
@@ -70,19 +64,7 @@ impl NeuraPartialLayer for NeuraIsolateLayer {
     }
 }
 
-impl<F: Clone + Scalar> NeuraLayer<DVector<F>> for NeuraIsolateLayer {
-    type Output = DVector<F>;
-
-    fn eval(&self, input: &DVector<F>) -> Self::Output {
-        let (NeuraShape::Vector(start), NeuraShape::Vector(end)) = (self.start, self.end) else {
-            panic!("NeuraIsolateLayer expected a value of dimension {}, got a vector", self.start.dims());
-        };
-
-        DVector::from_iterator(end - start, input.iter().cloned().skip(start).take(end))
-    }
-}
-
-impl NeuraTrainableLayerBase for NeuraIsolateLayer {
+impl NeuraLayerBase for NeuraIsolateLayer {
     type Gradient = ();
 
     #[inline(always)]
@@ -90,41 +72,26 @@ impl NeuraTrainableLayerBase for NeuraIsolateLayer {
         ()
     }
 
-    #[inline(always)]
-    fn apply_gradient(&mut self, _gradient: &Self::Gradient) {
-        // Noop
+    fn output_shape(&self) -> NeuraShape {
+        self.end.sub(self.start).unwrap_or_else(|| unreachable!())
     }
 }
 
-impl<F: Clone + Scalar> NeuraTrainableLayerEval<DVector<F>> for NeuraIsolateLayer {
+impl<F: Clone + Scalar + Default> NeuraLayer<DVector<F>> for NeuraIsolateLayer {
+    type Output = DVector<F>;
+
     type IntermediaryRepr = ();
 
     fn eval_training(&self, input: &DVector<F>) -> (Self::Output, Self::IntermediaryRepr) {
-        (self.eval(input), ())
-    }
-}
+        let (NeuraShape::Vector(start), NeuraShape::Vector(end)) = (self.start, self.end) else {
+            panic!("NeuraIsolateLayer expected a value of dimension {}, got a vector", self.start.dims());
+        };
 
-impl<Input> NeuraTrainableLayerSelf<Input> for NeuraIsolateLayer
-where
-    Self: NeuraTrainableLayerEval<Input>,
-{
-    #[inline(always)]
-    fn regularize_layer(&self) -> Self::Gradient {
-        ()
+        let res = DVector::from_iterator(end - start, input.iter().cloned().skip(start).take(end));
+
+        (res, ())
     }
 
-    #[inline(always)]
-    fn get_gradient(
-        &self,
-        _input: &Input,
-        _intermediary: &Self::IntermediaryRepr,
-        _epsilon: &Self::Output,
-    ) -> Self::Gradient {
-        ()
-    }
-}
-
-impl<F: Clone + Scalar + Default> NeuraTrainableLayerBackprop<DVector<F>> for NeuraIsolateLayer {
     fn backprop_layer(
         &self,
         input: &DVector<F>,

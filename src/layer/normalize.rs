@@ -23,12 +23,6 @@ impl NeuraNormalizeLayer {
     }
 }
 
-impl NeuraShapedLayer for NeuraNormalizeLayer {
-    fn output_shape(&self) -> NeuraShape {
-        self.shape
-    }
-}
-
 impl NeuraPartialLayer for NeuraNormalizeLayer {
     type Constructed = NeuraNormalizeLayer;
 
@@ -39,7 +33,22 @@ impl NeuraPartialLayer for NeuraNormalizeLayer {
     }
 }
 
-impl<F: Float + Scalar> NeuraLayer<DVector<F>> for NeuraNormalizeLayer {
+impl NeuraLayerBase for NeuraNormalizeLayer {
+    fn output_shape(&self) -> NeuraShape {
+        self.shape
+    }
+
+    type Gradient = ();
+
+    fn default_gradient(&self) -> Self::Gradient {
+        ()
+    }
+}
+
+impl<F: Float + Scalar + NumAssignOps> NeuraLayer<DVector<F>> for NeuraNormalizeLayer {
+    // TODO: store the kroenecker term in the jacobian matrix (might as well)
+    type IntermediaryRepr = (DMatrix<F>, F); // Partial jacobian matrix (without the kroenecker term) and stddev
+
     type Output = DVector<F>;
 
     fn eval(&self, input: &DVector<F>) -> Self::Output {
@@ -54,22 +63,6 @@ impl<F: Float + Scalar> NeuraLayer<DVector<F>> for NeuraNormalizeLayer {
 
         output
     }
-}
-
-impl NeuraTrainableLayerBase for NeuraNormalizeLayer {
-    type Gradient = ();
-
-    fn default_gradient(&self) -> Self::Gradient {
-        ()
-    }
-
-    fn apply_gradient(&mut self, _gradient: &Self::Gradient) {
-        // Noop
-    }
-}
-
-impl<F: Float + Scalar + NumAssignOps> NeuraTrainableLayerEval<DVector<F>> for NeuraNormalizeLayer {
-    type IntermediaryRepr = (DMatrix<F>, F); // Partial jacobian matrix (without the kroenecker term) and stddev
 
     fn eval_training(&self, input: &DVector<F>) -> (Self::Output, Self::IntermediaryRepr) {
         let (mean, variance, len) = mean_variance(input);
@@ -85,26 +78,7 @@ impl<F: Float + Scalar + NumAssignOps> NeuraTrainableLayerEval<DVector<F>> for N
 
         (input_centered / stddev, (jacobian_partial, stddev))
     }
-}
 
-impl<F: Float + Scalar + NumAssignOps> NeuraTrainableLayerSelf<DVector<F>> for NeuraNormalizeLayer {
-    fn regularize_layer(&self) -> Self::Gradient {
-        ()
-    }
-
-    fn get_gradient(
-        &self,
-        _input: &DVector<F>,
-        _intermediary: &Self::IntermediaryRepr,
-        _epsilon: &Self::Output,
-    ) -> Self::Gradient {
-        ()
-    }
-}
-
-impl<F: Float + Scalar + NumAssignOps> NeuraTrainableLayerBackprop<DVector<F>>
-    for NeuraNormalizeLayer
-{
     fn backprop_layer(
         &self,
         _input: &DVector<F>,

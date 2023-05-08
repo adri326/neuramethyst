@@ -1,5 +1,3 @@
-use nalgebra::{DVector, Scalar};
-use num::Float;
 use std::borrow::Cow;
 
 use crate::network::*;
@@ -102,24 +100,6 @@ impl<Layer, ChildNetwork, Axis> NeuraResidualNode<Layer, ChildNetwork, Axis> {
     }
 }
 
-impl<F: Float + Scalar, Layer, ChildNetwork, Axis> NeuraLayer<NeuraResidualInput<DVector<F>>>
-    for NeuraResidualNode<Layer, ChildNetwork, Axis>
-where
-    Axis: NeuraCombineInputs<DVector<F>>,
-    Layer: NeuraLayer<Axis::Combined, Output = DVector<F>>,
-    ChildNetwork: NeuraLayer<NeuraResidualInput<DVector<F>>>,
-{
-    type Output = <ChildNetwork as NeuraLayer<NeuraResidualInput<DVector<F>>>>::Output;
-
-    fn eval(&self, input: &NeuraResidualInput<DVector<F>>) -> Self::Output {
-        let (layer_input, mut rest) = self.process_input(input);
-
-        self.combine_outputs(self.layer.eval(&layer_input), &mut rest);
-
-        self.child_network.eval(&rest)
-    }
-}
-
 #[allow(dead_code)]
 pub struct NeuraResidualIntermediary<LayerIntermediary, LayerOutput, ChildIntermediary> {
     layer_intermediary: LayerIntermediary,
@@ -127,9 +107,18 @@ pub struct NeuraResidualIntermediary<LayerIntermediary, LayerOutput, ChildInterm
     child_intermediary: Box<ChildIntermediary>,
 }
 
-impl<Layer: NeuraTrainableLayerBase, ChildNetwork: NeuraTrainableLayerBase, Axis>
-    NeuraTrainableLayerBase for NeuraResidualNode<Layer, ChildNetwork, Axis>
+impl<
+        Layer: NeuraLayerBase,
+        ChildNetwork: NeuraLayerBase,
+        Axis: Clone + std::fmt::Debug + 'static,
+    > NeuraLayerBase for NeuraResidualNode<Layer, ChildNetwork, Axis>
 {
+    #[inline(always)]
+    fn output_shape(&self) -> NeuraShape {
+        todo!("output_shape for NeuraResidualNode is not yet ready");
+        self.child_network.output_shape()
+    }
+
     type Gradient = (Layer::Gradient, Box<ChildNetwork::Gradient>);
 
     fn default_gradient(&self) -> Self::Gradient {
@@ -148,24 +137,36 @@ impl<Layer: NeuraTrainableLayerBase, ChildNetwork: NeuraTrainableLayerBase, Axis
         self.layer.prepare_layer(is_training);
         self.child_network.prepare_layer(is_training);
     }
+
+    fn regularize_layer(&self) -> Self::Gradient {
+        (
+            self.layer.regularize_layer(),
+            Box::new(self.child_network.regularize_layer()),
+        )
+    }
 }
 
-impl<
-        Data,
-        Axis: NeuraCombineInputs<Data>,
-        Layer: NeuraTrainableLayerEval<Axis::Combined, Output = Data>,
-        ChildNetwork: NeuraTrainableLayerEval<NeuraResidualInput<Data>>,
-    > NeuraTrainableLayerEval<NeuraResidualInput<Data>>
-    for NeuraResidualNode<Layer, ChildNetwork, Axis>
+impl<Data: Clone + 'static, Layer, ChildNetwork, Axis: Clone + std::fmt::Debug + 'static>
+    NeuraLayer<NeuraResidualInput<Data>> for NeuraResidualNode<Layer, ChildNetwork, Axis>
 where
-    NeuraResidualNode<Layer, ChildNetwork, Axis>:
-        NeuraLayer<NeuraResidualInput<Data>, Output = ChildNetwork::Output>,
+    Axis: NeuraCombineInputs<Data>,
+    Layer: NeuraLayer<Axis::Combined, Output = Data>,
+    ChildNetwork: NeuraLayer<NeuraResidualInput<Data>>,
 {
+    type Output = <ChildNetwork as NeuraLayer<NeuraResidualInput<Data>>>::Output;
     type IntermediaryRepr = NeuraResidualIntermediary<
         Layer::IntermediaryRepr,
         Layer::Output,
         ChildNetwork::IntermediaryRepr,
     >;
+
+    fn eval(&self, input: &NeuraResidualInput<Data>) -> Self::Output {
+        let (layer_input, mut rest) = self.process_input(input);
+
+        self.combine_outputs(self.layer.eval(&layer_input), &mut rest);
+
+        self.child_network.eval(&rest)
+    }
 
     fn eval_training(
         &self,
@@ -186,25 +187,6 @@ where
 
         (output, intermediary)
     }
-}
-
-impl<
-        Data,
-        Axis: NeuraCombineInputs<Data>,
-        Layer: NeuraTrainableLayerSelf<Axis::Combined, Output = Data>,
-        ChildNetwork: NeuraTrainableLayerSelf<NeuraResidualInput<Data>>,
-    > NeuraTrainableLayerSelf<NeuraResidualInput<Data>>
-    for NeuraResidualNode<Layer, ChildNetwork, Axis>
-where
-    NeuraResidualNode<Layer, ChildNetwork, Axis>:
-        NeuraLayer<NeuraResidualInput<Data>, Output = ChildNetwork::Output>,
-{
-    fn regularize_layer(&self) -> Self::Gradient {
-        (
-            self.layer.regularize_layer(),
-            Box::new(self.child_network.regularize_layer()),
-        )
-    }
 
     #[allow(unused)]
     fn get_gradient(
@@ -213,7 +195,17 @@ where
         intermediary: &Self::IntermediaryRepr,
         epsilon: &Self::Output,
     ) -> Self::Gradient {
-        unimplemented!("NeuraResidualNode::get_gradient is not yet implemented, sorry");
+        unimplemented!("NeuraResidualNode::get_gradient is not yet implemented");
+    }
+
+    #[allow(unused)]
+    fn backprop_layer(
+        &self,
+        input: &NeuraResidualInput<Data>,
+        intermediary: &Self::IntermediaryRepr,
+        epsilon: &Self::Output,
+    ) -> NeuraResidualInput<Data> {
+        unimplemented!("NeuraResidualNode::backprop_layer is not yet implemented");
     }
 }
 
@@ -225,8 +217,11 @@ impl<Axis, Layer, ChildNetwork> NeuraNetworkBase for NeuraResidualNode<Layer, Ch
     }
 }
 
-impl<Axis, Layer: NeuraTrainableLayerBase, ChildNetwork: NeuraTrainableLayerBase> NeuraNetworkRec
-    for NeuraResidualNode<Layer, ChildNetwork, Axis>
+impl<
+        Axis: Clone + std::fmt::Debug + 'static,
+        Layer: NeuraLayerBase,
+        ChildNetwork: NeuraLayerBase,
+    > NeuraNetworkRec for NeuraResidualNode<Layer, ChildNetwork, Axis>
 {
     type NextNode = ChildNetwork;
 
@@ -236,8 +231,8 @@ impl<Axis, Layer: NeuraTrainableLayerBase, ChildNetwork: NeuraTrainableLayerBase
 
     fn merge_gradient(
         &self,
-        rec_gradient: <Self::NextNode as NeuraTrainableLayerBase>::Gradient,
-        layer_gradient: <Self::Layer as NeuraTrainableLayerBase>::Gradient,
+        rec_gradient: <Self::NextNode as NeuraLayerBase>::Gradient,
+        layer_gradient: <Self::Layer as NeuraLayerBase>::Gradient,
     ) -> Self::Gradient {
         (layer_gradient, Box::new(rec_gradient))
     }

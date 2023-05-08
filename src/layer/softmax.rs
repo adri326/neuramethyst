@@ -16,8 +16,30 @@ impl NeuraSoftmaxLayer {
     }
 }
 
+impl NeuraPartialLayer for NeuraSoftmaxLayer {
+    type Constructed = Self;
+    type Err = ();
+
+    fn construct(self, input_shape: NeuraShape) -> Result<Self::Constructed, Self::Err> {
+        Ok(Self { shape: input_shape })
+    }
+}
+
+impl NeuraLayerBase for NeuraSoftmaxLayer {
+    type Gradient = ();
+
+    fn output_shape(&self) -> NeuraShape {
+        self.shape
+    }
+
+    fn default_gradient(&self) -> Self::Gradient {
+        ()
+    }
+}
+
 impl<F: Float + Scalar + NumAssignOps> NeuraLayer<DVector<F>> for NeuraSoftmaxLayer {
     type Output = DVector<F>;
+    type IntermediaryRepr = Self::Output; // Result of self.eval
 
     fn eval(&self, input: &DVector<F>) -> Self::Output {
         let mut res = input.clone();
@@ -39,64 +61,12 @@ impl<F: Float + Scalar + NumAssignOps> NeuraLayer<DVector<F>> for NeuraSoftmaxLa
 
         res
     }
-}
-
-impl NeuraShapedLayer for NeuraSoftmaxLayer {
-    fn output_shape(&self) -> NeuraShape {
-        self.shape
-    }
-}
-
-impl NeuraPartialLayer for NeuraSoftmaxLayer {
-    type Constructed = Self;
-    type Err = ();
-
-    fn construct(self, input_shape: NeuraShape) -> Result<Self::Constructed, Self::Err> {
-        Ok(Self { shape: input_shape })
-    }
-}
-
-impl NeuraTrainableLayerBase for NeuraSoftmaxLayer {
-    type Gradient = ();
-
-    fn default_gradient(&self) -> Self::Gradient {
-        ()
-    }
-
-    fn apply_gradient(&mut self, _gradient: &Self::Gradient) {
-        // Noop
-    }
-}
-
-impl<F: Float + Scalar + NumAssignOps> NeuraTrainableLayerEval<DVector<F>> for NeuraSoftmaxLayer {
-    type IntermediaryRepr = Self::Output; // Result of self.eval
 
     fn eval_training(&self, input: &DVector<F>) -> (Self::Output, Self::IntermediaryRepr) {
         let res = self.eval(input);
         (res.clone(), res)
     }
-}
 
-impl<F: Float + Scalar + NumAssignOps> NeuraTrainableLayerSelf<DVector<F>> for NeuraSoftmaxLayer {
-    #[inline(always)]
-    fn regularize_layer(&self) -> Self::Gradient {
-        ()
-    }
-
-    #[inline(always)]
-    fn get_gradient(
-        &self,
-        _input: &DVector<F>,
-        _intermediary: &Self::IntermediaryRepr,
-        _epsilon: &Self::Output,
-    ) -> Self::Gradient {
-        ()
-    }
-}
-
-impl<F: Float + Scalar + NumAssignOps> NeuraTrainableLayerBackprop<DVector<F>>
-    for NeuraSoftmaxLayer
-{
     fn backprop_layer(
         &self,
         input: &DVector<F>,

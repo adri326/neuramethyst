@@ -63,7 +63,13 @@ impl NeuraResidualConstruct for NeuraResidualLast {
     }
 }
 
-impl NeuraShapedLayer for NeuraResidualLast {
+impl NeuraLayerBase for NeuraResidualLast {
+    type Gradient = ();
+
+    fn default_gradient(&self) -> Self::Gradient {
+        ()
+    }
+
     fn output_shape(&self) -> NeuraShape {
         self.output_shape
             .expect("Called NeuraResidualLast::output_shape before constructing it")
@@ -90,7 +96,7 @@ impl NeuraNetworkRec for NeuraResidualLast {
     #[inline(always)]
     fn merge_gradient(&self, _rec_gradient: (), _layer_gradient: ()) -> Self::Gradient
     where
-        Self::Layer: NeuraTrainableLayerBase,
+        Self::Layer: NeuraLayerBase,
     {
         ()
     }
@@ -135,62 +141,24 @@ impl<Data: Clone> NeuraNetwork<NeuraResidualInput<Data>> for NeuraResidualLast {
     }
 }
 
-impl NeuraTrainableLayerBase for NeuraResidualLast {
-    type Gradient = ();
-
-    #[inline(always)]
-    fn default_gradient(&self) -> Self::Gradient {
-        ()
-    }
-
-    #[inline(always)]
-    fn apply_gradient(&mut self, _gradient: &Self::Gradient) {
-        // Noop
-    }
-}
-
 impl<Data: Clone> NeuraLayer<NeuraResidualInput<Data>> for NeuraResidualLast {
     type Output = Data;
+    type IntermediaryRepr = ();
 
-    fn eval(&self, input: &NeuraResidualInput<Data>) -> Self::Output {
+    fn eval_training(&self, input: &NeuraResidualInput<Data>) -> (Self::Output, ()) {
         let result: Rc<Self::Output> = input.clone().get_first()
             .expect("Invalid NeuraResidual state: network returned no data, did you forget to link the last layer?")
             .into();
 
-        unwrap_or_clone(result)
+        (unwrap_or_clone(result), ())
     }
-}
 
-impl<Data: Clone> NeuraTrainableLayerEval<NeuraResidualInput<Data>> for NeuraResidualLast {
-    type IntermediaryRepr = ();
-
-    #[inline(always)]
-    fn eval_training(
+    fn backprop_layer(
         &self,
         input: &NeuraResidualInput<Data>,
-    ) -> (Self::Output, Self::IntermediaryRepr) {
-        (self.eval(input), ())
-    }
-}
-
-impl<Data: Clone> NeuraTrainableLayerSelf<NeuraResidualInput<Data>> for NeuraResidualLast {
-    #[inline(always)]
-    fn regularize_layer(&self) -> Self::Gradient {
-        ()
-    }
-
-    #[inline(always)]
-    fn get_gradient(
-        &self,
-        _input: &NeuraResidualInput<Data>,
         _intermediary: &Self::IntermediaryRepr,
-        _epsilon: &Self::Output,
-    ) -> Self::Gradient {
-        ()
+        epsilon: &Self::Output,
+    ) -> NeuraResidualInput<Data> {
+        Cow::into_owned(self.map_gradient_out(input, epsilon, epsilon))
     }
 }
-
-// let epsilon = Rc::new(epsilon.clone());
-// let mut epsilon_residual = NeuraResidualInput::new();
-
-// epsilon_residual.push(0, epsilon);

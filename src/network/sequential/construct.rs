@@ -1,4 +1,4 @@
-use crate::{err::NeuraRecursiveErr, layer::NeuraShapedLayer};
+use crate::err::NeuraRecursiveErr;
 
 use super::*;
 
@@ -37,21 +37,5 @@ impl<Layer: NeuraPartialLayer, ChildNetwork: NeuraPartialLayer> NeuraPartialLaye
             layer,
             child_network,
         })
-    }
-}
-
-impl<Layer: NeuraShapedLayer> NeuraShapedLayer for NeuraSequential<Layer, ()> {
-    #[inline(always)]
-    fn output_shape(&self) -> NeuraShape {
-        self.layer.output_shape()
-    }
-}
-
-impl<Layer, ChildNetwork: NeuraShapedLayer> NeuraShapedLayer
-    for NeuraSequential<Layer, ChildNetwork>
-{
-    #[inline(always)]
-    fn output_shape(&self) -> NeuraShape {
-        self.child_network.output_shape()
     }
 }

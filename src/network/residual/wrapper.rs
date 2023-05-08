@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use crate::network::*;
+use crate::{network::*, utils::unwrap_or_clone};
 
 use super::*;
 
@@ -45,18 +45,48 @@ impl<Layers> NeuraResidual<Layers> {
     }
 }
 
-impl<Input: Clone, Layers> NeuraLayer<Input> for NeuraResidual<Layers>
+impl<Data: Clone, Layers> NeuraLayer<Data> for NeuraResidual<Layers>
 where
-    Layers: NeuraLayer<NeuraResidualInput<Input>>,
+    Layers: NeuraLayer<NeuraResidualInput<Data>>,
 {
     type Output = Layers::Output;
+    type IntermediaryRepr = Layers::IntermediaryRepr;
 
-    fn eval(&self, input: &Input) -> Self::Output {
+    fn eval(&self, input: &Data) -> Self::Output {
         self.layers.eval(&self.input_to_residual_input(input))
+    }
+
+    fn eval_training(&self, input: &Data) -> (Self::Output, Self::IntermediaryRepr) {
+        self.layers
+            .eval_training(&self.input_to_residual_input(input))
+    }
+
+    fn get_gradient(
+        &self,
+        input: &Data,
+        intermediary: &Self::IntermediaryRepr,
+        epsilon: &Self::Output,
+    ) -> Self::Gradient {
+        self.layers
+            .get_gradient(&self.input_to_residual_input(input), intermediary, &epsilon)
+    }
+
+    fn backprop_layer(
+        &self,
+        input: &Data,
+        intermediary: &Self::IntermediaryRepr,
+        epsilon: &Self::Output,
+    ) -> Data {
+        unwrap_or_clone(
+            self.layers
+                .backprop_layer(&self.input_to_residual_input(input), intermediary, &epsilon)
+                .get_first()
+                .unwrap(),
+        )
     }
 }
 
-impl<Layers: NeuraTrainableLayerBase> NeuraTrainableLayerBase for NeuraResidual<Layers> {
+impl<Layers: NeuraLayerBase> NeuraLayerBase for NeuraResidual<Layers> {
     type Gradient = Layers::Gradient;
 
     #[inline(always)]
@@ -68,34 +98,13 @@ impl<Layers: NeuraTrainableLayerBase> NeuraTrainableLayerBase for NeuraResidual<
     fn apply_gradient(&mut self, gradient: &Self::Gradient) {
         self.layers.apply_gradient(gradient);
     }
-}
 
-impl<Data: Clone, Layers: NeuraTrainableLayerEval<NeuraResidualInput<Data>>>
-    NeuraTrainableLayerEval<Data> for NeuraResidual<Layers>
-{
-    type IntermediaryRepr = Layers::IntermediaryRepr;
-
-    fn eval_training(&self, input: &Data) -> (Self::Output, Self::IntermediaryRepr) {
-        self.layers
-            .eval_training(&self.input_to_residual_input(input))
-    }
-}
-
-impl<Data: Clone, Layers: NeuraTrainableLayerSelf<NeuraResidualInput<Data>>>
-    NeuraTrainableLayerSelf<Data> for NeuraResidual<Layers>
-{
     fn regularize_layer(&self) -> Self::Gradient {
         self.layers.regularize_layer()
     }
 
-    fn get_gradient(
-        &self,
-        input: &Data,
-        intermediary: &Self::IntermediaryRepr,
-        epsilon: &Self::Output,
-    ) -> Self::Gradient {
-        self.layers
-            .get_gradient(&self.input_to_residual_input(input), intermediary, &epsilon)
+    fn output_shape(&self) -> NeuraShape {
+        self.layers.output_shape()
     }
 }
 
@@ -108,7 +117,7 @@ impl<Layers> NeuraNetworkBase for NeuraResidual<Layers> {
     }
 }
 
-impl<Layers: NeuraTrainableLayerBase> NeuraNetworkRec for NeuraResidual<Layers> {
+impl<Layers: NeuraLayerBase> NeuraNetworkRec for NeuraResidual<Layers> {
     type NextNode = Layers;
 
     #[inline(always)]
@@ -119,8 +128,8 @@ impl<Layers: NeuraTrainableLayerBase> NeuraNetworkRec for NeuraResidual<Layers> 
     #[inline(always)]
     fn merge_gradient(
         &self,
-        rec_gradient: <Self::NextNode as NeuraTrainableLayerBase>::Gradient,
-        _layer_gradient: <Self::Layer as NeuraTrainableLayerBase>::Gradient,
+        rec_gradient: <Self::NextNode as NeuraLayerBase>::Gradient,
+        _layer_gradient: <Self::Layer as NeuraLayerBase>::Gradient,
     ) -> Self::Gradient {
         rec_gradient
     }

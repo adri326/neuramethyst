@@ -1,10 +1,7 @@
 use std::borrow::Cow;
 
 use super::*;
-use crate::layer::{
-    NeuraLayer, NeuraPartialLayer, NeuraShape, NeuraTrainableLayerBase, NeuraTrainableLayerEval,
-    NeuraTrainableLayerSelf,
-};
+use crate::layer::{NeuraLayer, NeuraLayerBase, NeuraPartialLayer, NeuraShape};
 
 mod construct;
 mod layer_impl;
@@ -29,7 +26,7 @@ pub use tail::*;
 /// ## Notes on implemented traits
 ///
 /// The different implementations for `NeuraTrainableNetwork`,
-/// `NeuraLayer` and `NeuraTrainableLayerBase` each require that `ChildNetwork` implements those respective traits,
+/// `NeuraLayer` and `NeuraLayerBase` each require that `ChildNetwork` implements those respective traits,
 /// and that the output type of `Layer` matches the input type of `ChildNetwork`.
 ///
 /// If a method, like `eval`, is reported as missing,
@@ -96,7 +93,7 @@ impl<Layer, ChildNetwork> NeuraNetworkBase for NeuraSequential<Layer, ChildNetwo
     }
 }
 
-impl<Layer: NeuraTrainableLayerBase, ChildNetwork: NeuraTrainableLayerBase> NeuraNetworkRec
+impl<Layer: NeuraLayerBase, ChildNetwork: NeuraLayerBase> NeuraNetworkRec
     for NeuraSequential<Layer, ChildNetwork>
 {
     type NextNode = ChildNetwork;
@@ -107,14 +104,14 @@ impl<Layer: NeuraTrainableLayerBase, ChildNetwork: NeuraTrainableLayerBase> Neur
 
     fn merge_gradient(
         &self,
-        rec_gradient: <Self::NextNode as NeuraTrainableLayerBase>::Gradient,
-        layer_gradient: <Self::Layer as NeuraTrainableLayerBase>::Gradient,
+        rec_gradient: <Self::NextNode as NeuraLayerBase>::Gradient,
+        layer_gradient: <Self::Layer as NeuraLayerBase>::Gradient,
     ) -> Self::Gradient {
         (layer_gradient, Box::new(rec_gradient))
     }
 }
 
-impl<Input: Clone, Layer: NeuraTrainableLayerEval<Input>, ChildNetwork> NeuraNetwork<Input>
+impl<Input: Clone, Layer: NeuraLayer<Input>, ChildNetwork> NeuraNetwork<Input>
     for NeuraSequential<Layer, ChildNetwork>
 where
     Layer::Output: Clone,

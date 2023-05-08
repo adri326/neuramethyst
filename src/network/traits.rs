@@ -46,18 +46,18 @@ where
     ) -> Cow<'a, NodeInput>;
 }
 
-pub trait NeuraNetworkRec: NeuraNetworkBase + NeuraTrainableLayerBase {
+pub trait NeuraNetworkRec: NeuraNetworkBase + NeuraLayerBase {
     /// The type of the children network, it does not need to implement `NeuraNetworkBase`,
     /// although many functions will expect it to be either `()` or an implementation of `NeuraNetworkRec`.
-    type NextNode: NeuraTrainableLayerBase;
+    type NextNode: NeuraLayerBase;
 
     fn get_next(&self) -> &Self::NextNode;
 
     fn merge_gradient(
         &self,
-        rec_gradient: <Self::NextNode as NeuraTrainableLayerBase>::Gradient,
-        layer_gradient: <Self::Layer as NeuraTrainableLayerBase>::Gradient,
+        rec_gradient: <Self::NextNode as NeuraLayerBase>::Gradient,
+        layer_gradient: <Self::Layer as NeuraLayerBase>::Gradient,
     ) -> Self::Gradient
     where
-        Self::Layer: NeuraTrainableLayerBase;
+        Self::Layer: NeuraLayerBase;
 }

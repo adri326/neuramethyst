@@ -23,10 +23,7 @@ pub mod prelude {
 
     // Structs and traits
     pub use crate::gradient_solver::NeuraBackprop;
-    pub use crate::layer::{
-        NeuraLayer, NeuraPartialLayer, NeuraShape, NeuraTrainableLayerBackprop,
-        NeuraTrainableLayerBase, NeuraTrainableLayerSelf,
-    };
+    pub use crate::layer::{NeuraLayer, NeuraLayerBase, NeuraPartialLayer, NeuraShape};
     pub use crate::network::sequential::{
         NeuraSequential, NeuraSequentialLock, NeuraSequentialTail,
     };

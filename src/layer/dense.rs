@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
-use nalgebra::{DMatrix, DVector};
-use num::Float;
+use nalgebra::{DMatrix, DVector, Scalar};
+use num::{traits::NumAssignOps, Float};
 use rand::Rng;
 
 use crate::{derivable::NeuraDerivable, err::NeuraDimensionsMismatch};
@@ -126,18 +126,10 @@ impl<F, Act, Reg, R: Rng> NeuraDenseLayerPartial<F, Act, Reg, R> {
     }
 }
 
-impl<F: Float, Act: NeuraDerivable<F>, Reg: NeuraDerivable<F>> NeuraShapedLayer
-    for NeuraDenseLayer<F, Act, Reg>
-{
-    fn output_shape(&self) -> NeuraShape {
-        NeuraShape::Vector(self.weights.shape().0)
-    }
-}
-
 impl<
-        F: Float + std::fmt::Debug + 'static,
-        Act: NeuraDerivable<F>,
-        Reg: NeuraDerivable<F>,
+        F: Float + Scalar + Send + NumAssignOps,
+        Act: NeuraDerivable<F> + Clone + std::fmt::Debug + 'static,
+        Reg: NeuraDerivable<F> + Clone + std::fmt::Debug + 'static,
         R: Rng,
     > NeuraPartialLayer for NeuraDenseLayerPartial<F, Act, Reg, R>
 where
@@ -158,8 +150,10 @@ where
     }
 }
 
-impl<F: Float, Act: NeuraDerivable<F>, Reg: NeuraDerivable<F>> NeuraPartialLayer
-    for NeuraDenseLayer<F, Act, Reg>
+impl<F: Float + Scalar + Send + NumAssignOps, Act: NeuraDerivable<F>, Reg: NeuraDerivable<F>>
+    NeuraPartialLayer for NeuraDenseLayer<F, Act, Reg>
+where
+    Self: Clone + std::fmt::Debug + 'static,
 {
     type Constructed = Self;
     type Err = NeuraDimensionsMismatch;
@@ -176,28 +170,10 @@ impl<F: Float, Act: NeuraDerivable<F>, Reg: NeuraDerivable<F>> NeuraPartialLayer
     }
 }
 
-impl<
-        F: Float + std::fmt::Debug + 'static + std::ops::AddAssign + std::ops::MulAssign,
-        Act: NeuraDerivable<F>,
-        Reg: NeuraDerivable<F>,
-    > NeuraLayer<DVector<F>> for NeuraDenseLayer<F, Act, Reg>
-{
-    type Output = DVector<F>;
-
-    fn eval(&self, input: &DVector<F>) -> Self::Output {
-        assert_eq!(input.shape().0, self.weights.shape().1);
-
-        let evaluated = &self.weights * input + &self.bias;
-
-        evaluated.map(|x| self.activation.eval(x))
-    }
-}
-
-impl<
-        F: Float + std::fmt::Debug + 'static + std::ops::AddAssign + std::ops::MulAssign,
-        Act: NeuraDerivable<F>,
-        Reg: NeuraDerivable<F>,
-    > NeuraTrainableLayerBase for NeuraDenseLayer<F, Act, Reg>
+impl<F: Float + NumAssignOps + Scalar + Send, Act: NeuraDerivable<F>, Reg: NeuraDerivable<F>>
+    NeuraLayerBase for NeuraDenseLayer<F, Act, Reg>
+where
+    Self: Clone + std::fmt::Debug + 'static,
 {
     type Gradient = (DMatrix<F>, DVector<F>);
 
@@ -212,14 +188,25 @@ impl<
         self.weights += &gradient.0;
         self.bias += &gradient.1;
     }
+
+    fn output_shape(&self) -> NeuraShape {
+        NeuraShape::Vector(self.weights.shape().0)
+    }
+
+    fn regularize_layer(&self) -> Self::Gradient {
+        (
+            self.weights.map(|x| self.regularization.derivate(x)),
+            DVector::zeros(self.bias.shape().0),
+        )
+    }
 }
 
-impl<
-        F: Float + std::fmt::Debug + 'static + std::ops::AddAssign + std::ops::MulAssign,
-        Act: NeuraDerivable<F>,
-        Reg: NeuraDerivable<F>,
-    > NeuraTrainableLayerEval<DVector<F>> for NeuraDenseLayer<F, Act, Reg>
+impl<F: Float + NumAssignOps + Scalar + Send, Act: NeuraDerivable<F>, Reg: NeuraDerivable<F>>
+    NeuraLayer<DVector<F>> for NeuraDenseLayer<F, Act, Reg>
+where
+    Self: Clone + std::fmt::Debug + 'static,
 {
+    type Output = DVector<F>;
     type IntermediaryRepr = DVector<F>; // pre-activation values
 
     fn eval_training(&self, input: &DVector<F>) -> (Self::Output, Self::IntermediaryRepr) {
@@ -227,20 +214,6 @@ impl<
         let output = evaluated.map(|x| self.activation.eval(x));
 
         (output, evaluated)
-    }
-}
-
-impl<
-        F: Float + std::fmt::Debug + 'static + std::ops::AddAssign + std::ops::MulAssign,
-        Act: NeuraDerivable<F>,
-        Reg: NeuraDerivable<F>,
-    > NeuraTrainableLayerSelf<DVector<F>> for NeuraDenseLayer<F, Act, Reg>
-{
-    fn regularize_layer(&self) -> Self::Gradient {
-        (
-            self.weights.map(|x| self.regularization.derivate(x)),
-            DVector::zeros(self.bias.shape().0),
-        )
     }
 
     fn get_gradient(
@@ -266,14 +239,7 @@ impl<
 
         (weights_gradient, bias_gradient)
     }
-}
 
-impl<
-        F: Float + std::fmt::Debug + 'static + std::ops::AddAssign + std::ops::MulAssign,
-        Act: NeuraDerivable<F>,
-        Reg: NeuraDerivable<F>,
-    > NeuraTrainableLayerBackprop<DVector<F>> for NeuraDenseLayer<F, Act, Reg>
-{
     fn backprop_layer(
         &self,
         _input: &DVector<F>,

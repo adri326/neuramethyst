@@ -3,7 +3,7 @@ use num::{traits::NumAssignOps, Float};
 
 use crate::{
     derivable::NeuraDerivable,
-    layer::NeuraTrainableLayerSelf,
+    layer::*,
     network::{NeuraNetwork, NeuraNetworkRec},
     prelude::NeuraLayer,
 };
@@ -69,18 +69,18 @@ impl<
         F: Float,
         Act: Clone + NeuraDerivable<f64>,
         Input: Clone,
-        Trainable: NeuraTrainableLayerBase + NeuraLayer<Input, Output = DVector<F>>,
+        Trainable: NeuraLayer<Input, Output = DVector<F>>,
     > NeuraGradientSolver<Input, bool, Trainable> for NeuraForwardForward<Act>
 where
     NeuraForwardPair<Act>:
-        ForwardForwardRecurse<Input, Trainable, <Trainable as NeuraTrainableLayerBase>::Gradient>,
+        ForwardForwardRecurse<Input, Trainable, <Trainable as NeuraLayerBase>::Gradient>,
 {
     fn get_gradient(
         &self,
         trainable: &Trainable,
         input: &Input,
         target: &bool,
-    ) -> <Trainable as NeuraTrainableLayerBase>::Gradient {
+    ) -> <Trainable as NeuraLayerBase>::Gradient {
         let target = *target;
         let pair = NeuraForwardPair {
             threshold: self.threshold,
@@ -137,13 +137,13 @@ impl<Act, Input> ForwardForwardRecurse<Input, (), ()> for NeuraForwardPair<Act> 
 impl<Act, Input: Clone, Network: NeuraNetwork<Input> + NeuraNetworkRec>
     ForwardForwardRecurse<Input, Network, Network::Gradient> for NeuraForwardPair<Act>
 where
-    Network::Layer: NeuraTrainableLayerSelf<Network::LayerInput>,
+    Network::Layer: NeuraLayer<Network::LayerInput>,
     <Network::Layer as NeuraLayer<Network::LayerInput>>::Output: Clone,
     Self: ForwardForwardDerivate<<Network::Layer as NeuraLayer<Network::LayerInput>>::Output>,
     Self: ForwardForwardRecurse<
         Network::NodeOutput,
         Network::NextNode,
-        <Network::NextNode as NeuraTrainableLayerBase>::Gradient,
+        <Network::NextNode as NeuraLayerBase>::Gradient,
     >,
 {
     fn recurse(&self, network: &Network, input: &Input) -> Network::Gradient {

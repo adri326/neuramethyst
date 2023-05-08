@@ -25,7 +25,7 @@ impl<Data> FromSequential<(), Data> for NeuraGraph<Data> {
     }
 }
 
-impl<Data: Clone + 'static, Layer: NeuraTrainableLayerFull<Data, Output = Data>, ChildNetwork>
+impl<Data: Clone + 'static, Layer: NeuraLayer<Data, Output = Data>, ChildNetwork>
     FromSequential<NeuraSequential<Layer, ChildNetwork>, Data> for NeuraGraph<Data>
 where
     NeuraGraph<Data>: FromSequential<ChildNetwork, Data>,
@@ -57,7 +57,7 @@ impl<Data> NeuraGraph<Data> {
     ) -> Self
     where
         NeuraGraph<Data>: FromSequential<NeuraSequential<Layer, ChildNetwork>, Data>,
-        NeuraSequential<Layer, ChildNetwork>: NeuraShapedLayer,
+        NeuraSequential<Layer, ChildNetwork>: NeuraLayerBase,
     {
         Self::from_sequential_rec(&network, vec![], input_shape)
     }

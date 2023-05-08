@@ -122,7 +122,7 @@ impl<Data> NeuraGraphPartial<Data> {
     }
 }
 
-impl<Data> NeuraPartialLayer for NeuraGraphPartial<Data> {
+impl<Data: Clone + std::fmt::Debug + 'static> NeuraPartialLayer for NeuraGraphPartial<Data> {
     type Constructed = NeuraGraph<Data>;
 
     type Err = NeuraGraphErr;

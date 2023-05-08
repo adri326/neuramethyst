@@ -1,19 +1,22 @@
 use super::*;
-use crate::layer::{NeuraTrainableLayerBackprop, NeuraTrainableLayerEval};
+use crate::layer::{NeuraLayer, NeuraLayerBase};
 
-impl<Input, Layer: NeuraLayer<Input>, ChildNetwork: NeuraLayer<Layer::Output>> NeuraLayer<Input>
+// impl<Layer: NeuraLayerBase> NeuraLayerBase for NeuraSequential<Layer, ()> {
+//     #[inline(always)]
+//     fn output_shape(&self) -> NeuraShape {
+//         self.layer.output_shape()
+//     }
+// }
+
+impl<Layer: NeuraLayerBase, ChildNetwork: NeuraLayerBase> NeuraLayerBase
     for NeuraSequential<Layer, ChildNetwork>
 {
-    type Output = ChildNetwork::Output;
-
-    fn eval(&self, input: &Input) -> Self::Output {
-        self.child_network.eval(&self.layer.eval(input))
+    #[inline(always)]
+    fn output_shape(&self) -> NeuraShape {
+        todo!("Have output_shape return Option");
+        self.child_network.output_shape()
     }
-}
 
-impl<Layer: NeuraTrainableLayerBase, ChildNetwork: NeuraTrainableLayerBase> NeuraTrainableLayerBase
-    for NeuraSequential<Layer, ChildNetwork>
-{
     type Gradient = (Layer::Gradient, Box<ChildNetwork::Gradient>);
 
     fn default_gradient(&self) -> Self::Gradient {
@@ -32,15 +35,24 @@ impl<Layer: NeuraTrainableLayerBase, ChildNetwork: NeuraTrainableLayerBase> Neur
         self.layer.apply_gradient(&gradient.0);
         self.child_network.apply_gradient(&gradient.1);
     }
+
+    fn regularize_layer(&self) -> Self::Gradient {
+        (
+            self.layer.regularize_layer(),
+            Box::new(self.child_network.regularize_layer()),
+        )
+    }
 }
 
-impl<
-        Input,
-        Layer: NeuraTrainableLayerEval<Input>,
-        ChildNetwork: NeuraTrainableLayerEval<Layer::Output>,
-    > NeuraTrainableLayerEval<Input> for NeuraSequential<Layer, ChildNetwork>
+impl<Input, Layer: NeuraLayer<Input>, ChildNetwork: NeuraLayer<Layer::Output>> NeuraLayer<Input>
+    for NeuraSequential<Layer, ChildNetwork>
 {
+    type Output = ChildNetwork::Output;
     type IntermediaryRepr = (Layer::IntermediaryRepr, Box<ChildNetwork::IntermediaryRepr>);
+
+    fn eval(&self, input: &Input) -> Self::Output {
+        self.child_network.eval(&self.layer.eval(input))
+    }
 
     fn eval_training(&self, input: &Input) -> (Self::Output, Self::IntermediaryRepr) {
         let (layer_output, layer_intermediary) = self.layer.eval_training(input);
@@ -49,20 +61,6 @@ impl<
         (
             child_output,
             (layer_intermediary, Box::new(child_intermediary)),
-        )
-    }
-}
-
-impl<
-        Input,
-        Layer: NeuraTrainableLayerSelf<Input>,
-        ChildNetwork: NeuraTrainableLayerSelf<Layer::Output> + NeuraTrainableLayerBackprop<Layer::Output>,
-    > NeuraTrainableLayerSelf<Input> for NeuraSequential<Layer, ChildNetwork>
-{
-    fn regularize_layer(&self) -> Self::Gradient {
-        (
-            self.layer.regularize_layer(),
-            Box::new(self.child_network.regularize_layer()),
         )
     }
 
@@ -74,14 +72,7 @@ impl<
     ) -> Self::Gradient {
         unimplemented!("NeuraSequential::get_gradient is not yet implemented, sorry");
     }
-}
 
-impl<
-        Input,
-        Layer: NeuraTrainableLayerBackprop<Input>,
-        ChildNetwork: NeuraTrainableLayerBackprop<Layer::Output>,
-    > NeuraTrainableLayerBackprop<Input> for NeuraSequential<Layer, ChildNetwork>
-{
     fn backprop_layer(
         &self,
         input: &Input,

@@ -78,33 +78,10 @@ where
     }
 }
 
-impl<Layer, Axis> NeuraShapedLayer for NeuraResidualNode<Layer, (), Axis> {
-    #[inline(always)]
-    fn output_shape(&self) -> NeuraShape {
-        self.output_shape.unwrap()
-    }
-}
-
-impl<Layer, ChildNetwork: NeuraShapedLayer, Axis> NeuraShapedLayer
-    for NeuraResidualNode<Layer, ChildNetwork, Axis>
-{
-    #[inline(always)]
-    fn output_shape(&self) -> NeuraShape {
-        self.child_network.output_shape()
-    }
-}
-
-impl<Layers: NeuraShapedLayer> NeuraShapedLayer for NeuraResidual<Layers> {
-    #[inline(always)]
-    fn output_shape(&self) -> NeuraShape {
-        self.layers.output_shape()
-    }
-}
-
 impl<Layers: NeuraResidualConstruct> NeuraPartialLayer for NeuraResidual<Layers>
 where
     // Should always be satisfied:
-    Layers::Constructed: NeuraShapedLayer,
+    Layers::Constructed: NeuraLayerBase,
 {
     type Constructed = NeuraResidual<Layers::Constructed>;
     type Err = Layers::Err;
