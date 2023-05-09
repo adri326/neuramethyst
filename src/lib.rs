@@ -1,4 +1,5 @@
 pub mod algebra;
+pub mod axis;
 pub mod derivable;
 pub mod err;
 pub mod gradient_solver;

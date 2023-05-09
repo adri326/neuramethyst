@@ -1,7 +1,4 @@
-use crate::network::{
-    residual::{NeuraAxisDefault, NeuraSplitInputs},
-    sequential::NeuraSequentialLast,
-};
+use crate::network::sequential::NeuraSequentialLast;
 
 use super::*;
 
@@ -32,7 +29,6 @@ impl<Data: Clone + 'static, Layer: NeuraLayer<Data, Output = Data>, ChildNetwork
     FromSequential<NeuraSequential<Layer, ChildNetwork>, Data> for NeuraGraph<Data>
 where
     NeuraGraph<Data>: FromSequential<ChildNetwork, Data>,
-    NeuraAxisDefault: NeuraSplitInputs<Data, Combined = Data>,
     Layer::IntermediaryRepr: 'static,
 {
     fn from_sequential_rec(

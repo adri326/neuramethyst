@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use crate::network::*;
+use crate::{axis::*, network::*};
 
 use super::*;
 
@@ -68,12 +68,12 @@ impl<Layer, ChildNetwork, Axis> NeuraResidualNode<Layer, ChildNetwork, Axis> {
         input: &NeuraResidualInput<Data>,
     ) -> (Axis::Combined, NeuraResidualInput<Data>)
     where
-        Axis: NeuraCombineInputs<Data>,
+        Axis: NeuraAxis<Data>,
         Layer: NeuraLayer<Axis::Combined>,
     {
         let (inputs, rest) = input.shift();
 
-        let layer_input = self.axis.combine(inputs);
+        let layer_input = self.axis.combine(&inputs);
 
         (layer_input, rest)
     }
@@ -94,9 +94,9 @@ impl<Layer, ChildNetwork, Axis> NeuraResidualNode<Layer, ChildNetwork, Axis> {
 
     pub(crate) fn map_input_owned<Data>(&self, input: &NeuraResidualInput<Data>) -> Axis::Combined
     where
-        Axis: NeuraCombineInputs<Data>,
+        Axis: NeuraAxis<Data>,
     {
-        self.axis.combine(input.shift().0)
+        self.axis.combine(&input.shift().0)
     }
 }
 
@@ -148,7 +148,7 @@ impl<
 impl<Data: Clone + 'static, Layer, ChildNetwork, Axis: Clone + std::fmt::Debug + 'static>
     NeuraLayer<NeuraResidualInput<Data>> for NeuraResidualNode<Layer, ChildNetwork, Axis>
 where
-    Axis: NeuraCombineInputs<Data>,
+    Axis: NeuraAxis<Data>,
     Layer: NeuraLayer<Axis::Combined, Output = Data>,
     ChildNetwork: NeuraLayer<NeuraResidualInput<Data>>,
 {
@@ -239,7 +239,7 @@ impl<
 
 impl<
         Data: Clone + std::fmt::Debug,
-        Axis: NeuraCombineInputs<Data> + NeuraSplitInputs<Data>,
+        Axis: NeuraAxis<Data>,
         Layer: NeuraLayer<Axis::Combined, Output = Data> + std::fmt::Debug,
         ChildNetwork,
     > NeuraNetwork<NeuraResidualInput<Data>> for NeuraResidualNode<Layer, ChildNetwork, Axis>

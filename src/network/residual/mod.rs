@@ -8,9 +8,6 @@ pub use wrapper::*;
 mod input;
 pub use input::*;
 
-mod axis;
-pub use axis::*;
-
 mod construct;
 pub use construct::NeuraResidualConstruct;
 

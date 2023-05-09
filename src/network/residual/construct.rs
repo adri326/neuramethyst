@@ -1,4 +1,4 @@
-use crate::err::*;
+use crate::{axis::NeuraAxisBase, err::*};
 
 use super::*;
 use NeuraResidualConstructErr::*;
@@ -15,13 +15,12 @@ pub trait NeuraResidualConstruct {
     ) -> Result<Self::Constructed, Self::Err>;
 }
 
-impl<Layer: NeuraPartialLayer, ChildNetwork: NeuraResidualConstruct, Axis> NeuraResidualConstruct
-    for NeuraResidualNode<Layer, ChildNetwork, Axis>
-where
-    Axis: NeuraCombineInputs<NeuraShape, Combined = Result<NeuraShape, NeuraAxisErr>>,
+impl<Layer: NeuraPartialLayer, ChildNetwork: NeuraResidualConstruct, Axis: NeuraAxisBase>
+    NeuraResidualConstruct for NeuraResidualNode<Layer, ChildNetwork, Axis>
 {
     type Constructed = NeuraResidualNode<Layer::Constructed, ChildNetwork::Constructed, Axis>;
-    type Err = NeuraRecursiveErr<NeuraResidualConstructErr<Layer::Err>, ChildNetwork::Err>;
+    type Err =
+        NeuraRecursiveErr<NeuraResidualConstructErr<Layer::Err, Axis::Err>, ChildNetwork::Err>;
 
     fn construct_residual(
         self,
@@ -36,7 +35,7 @@ where
 
         let layer_input_shape = self
             .axis
-            .combine(input_shapes)
+            .shape(&input_shapes.iter().map(|shape| **shape).collect::<Vec<_>>())
             .map_err(|e| NeuraRecursiveErr::Current(AxisErr(e)))?;
 
         let layer = self

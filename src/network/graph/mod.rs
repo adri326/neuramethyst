@@ -13,11 +13,6 @@ pub use partial::NeuraGraphPartial;
 mod from;
 pub use from::FromSequential;
 
-#[deprecated]
-pub trait NeuraTrainableLayerFull<Input>: NeuraLayer<Input> {}
-
-impl<Input, T> NeuraTrainableLayerFull<Input> for T where T: NeuraLayer<Input> {}
-
 #[derive(Debug)]
 pub struct NeuraGraphNodeConstructed<Data> {
     node: Box<dyn NeuraGraphNodeEval<Data>>,
@@ -202,7 +197,7 @@ impl<Data: Clone + std::fmt::Debug + 'static> NeuraLayer<Data> for NeuraGraph<Da
 
 #[cfg(test)]
 mod test {
-    use crate::{err::NeuraGraphErr, network::residual::NeuraAxisAppend, utils::uniform_vector};
+    use crate::{axis::NeuraAxisAppend, err::NeuraGraphErr, utils::uniform_vector};
 
     use super::*;
 

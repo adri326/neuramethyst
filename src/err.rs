@@ -75,10 +75,10 @@ pub enum NeuraAxisErr {
 }
 
 #[derive(Clone, Debug)]
-pub enum NeuraResidualConstructErr<LayerErr> {
+pub enum NeuraResidualConstructErr<LayerErr, AxisErr> {
     Layer(LayerErr),
     WrongConnection(isize),
-    AxisErr(NeuraAxisErr),
+    AxisErr(AxisErr),
     NoOutput,
 }
 

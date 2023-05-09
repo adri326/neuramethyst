@@ -31,7 +31,7 @@ impl Default for NeuraResidualLast {
 
 impl NeuraResidualConstruct for NeuraResidualLast {
     type Constructed = NeuraResidualLast;
-    type Err = NeuraRecursiveErr<NeuraResidualConstructErr<()>, ()>;
+    type Err = NeuraRecursiveErr<NeuraResidualConstructErr<(), NeuraAxisErr>, ()>;
 
     fn construct_residual(
         self,
