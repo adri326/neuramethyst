@@ -8,11 +8,11 @@ pub trait NeuraSequentialLock {
     fn lock(self) -> Self::Locked;
 }
 
-impl NeuraSequentialLock for () {
-    type Locked = ();
+impl NeuraSequentialLock for NeuraSequentialLast {
+    type Locked = NeuraSequentialLast;
 
     fn lock(self) -> Self::Locked {
-        ()
+        self
     }
 }
 

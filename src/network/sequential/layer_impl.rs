@@ -1,19 +1,11 @@
 use super::*;
 use crate::layer::{NeuraLayer, NeuraLayerBase};
 
-// impl<Layer: NeuraLayerBase> NeuraLayerBase for NeuraSequential<Layer, ()> {
-//     #[inline(always)]
-//     fn output_shape(&self) -> NeuraShape {
-//         self.layer.output_shape()
-//     }
-// }
-
 impl<Layer: NeuraLayerBase, ChildNetwork: NeuraLayerBase> NeuraLayerBase
     for NeuraSequential<Layer, ChildNetwork>
 {
     #[inline(always)]
     fn output_shape(&self) -> NeuraShape {
-        todo!("Have output_shape return Option");
         self.child_network.output_shape()
     }
 

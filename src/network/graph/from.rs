@@ -1,4 +1,7 @@
-use crate::network::residual::{NeuraAxisDefault, NeuraSplitInputs};
+use crate::network::{
+    residual::{NeuraAxisDefault, NeuraSplitInputs},
+    sequential::NeuraSequentialLast,
+};
 
 use super::*;
 
@@ -10,9 +13,9 @@ pub trait FromSequential<Seq, Data> {
     ) -> Self;
 }
 
-impl<Data> FromSequential<(), Data> for NeuraGraph<Data> {
+impl<Data> FromSequential<NeuraSequentialLast, Data> for NeuraGraph<Data> {
     fn from_sequential_rec(
-        _seq: &(),
+        _seq: &NeuraSequentialLast,
         nodes: Vec<NeuraGraphNodeConstructed<Data>>,
         input_shape: NeuraShape,
     ) -> Self {

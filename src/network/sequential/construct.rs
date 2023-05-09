@@ -2,17 +2,17 @@ use crate::err::NeuraRecursiveErr;
 
 use super::*;
 
-impl<Layer: NeuraPartialLayer> NeuraPartialLayer for NeuraSequential<Layer, ()> {
-    type Constructed = NeuraSequential<Layer::Constructed, ()>;
-    type Err = Layer::Err;
+// impl<Layer: NeuraPartialLayer> NeuraPartialLayer for NeuraSequential<Layer, ()> {
+//     type Constructed = NeuraSequential<Layer::Constructed, ()>;
+//     type Err = Layer::Err;
 
-    fn construct(self, input_shape: NeuraShape) -> Result<Self::Constructed, Self::Err> {
-        Ok(NeuraSequential {
-            layer: self.layer.construct(input_shape)?,
-            child_network: Box::new(()),
-        })
-    }
-}
+//     fn construct(self, input_shape: NeuraShape) -> Result<Self::Constructed, Self::Err> {
+//         Ok(NeuraSequential {
+//             layer: self.layer.construct(input_shape)?,
+//             child_network: Box::new(()),
+//         })
+//     }
+// }
 
 impl<Layer: NeuraPartialLayer, ChildNetwork: NeuraPartialLayer> NeuraPartialLayer
     for NeuraSequential<Layer, ChildNetwork>

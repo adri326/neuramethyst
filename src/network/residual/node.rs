@@ -115,7 +115,6 @@ impl<
 {
     #[inline(always)]
     fn output_shape(&self) -> NeuraShape {
-        todo!("output_shape for NeuraResidualNode is not yet ready");
         self.child_network.output_shape()
     }
 

@@ -42,7 +42,7 @@ pub use tail::*;
 /// instance.
 ///
 /// The operations on the tail end are more complex, and require recursively traversing the `NeuraSequential` structure,
-/// until an instance of `NeuraSequential<Layer, ()>` is found.
+/// until an instance of `NeuraSequential<Layer, NeuraSequentialLast>` is found.
 /// If your network feeds into a type that does not implement `NeuraSequentialTail`, then you will not be able to use those operations.
 #[derive(Clone, Debug)]
 pub struct NeuraSequential<Layer, ChildNetwork> {
@@ -76,11 +76,11 @@ impl<Layer, ChildNetwork> NeuraSequential<Layer, ChildNetwork> {
     }
 }
 
-impl<Layer> From<Layer> for NeuraSequential<Layer, ()> {
+impl<Layer> From<Layer> for NeuraSequential<Layer, NeuraSequentialLast> {
     fn from(layer: Layer) -> Self {
         Self {
             layer,
-            child_network: Box::new(()),
+            child_network: Box::new(NeuraSequentialLast::default()),
         }
     }
 }
@@ -154,7 +154,7 @@ where
 #[macro_export]
 macro_rules! neura_sequential {
     [] => {
-        ()
+        $crate::network::sequential::NeuraSequentialLast::default()
     };
 
     [ .. $network:expr $(,)? ] => {
