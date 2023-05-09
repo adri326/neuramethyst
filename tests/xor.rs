@@ -36,7 +36,7 @@ fn test_xor_training() {
         (dvector![1.0, 1.0], dvector![0.0]),
     ];
 
-    let mut trainer = NeuraBatchedTrainer::new(0.05, 1);
+    let mut trainer = NeuraBatchedTrainer::new().learning_rate(0.05).iterations(1);
     trainer.batch_size = 1;
 
     for iteration in 0..4 {

@@ -39,7 +39,7 @@ pub fn main() {
     let test_inputs = generator().filter(|x| x.1).take(50).collect::<Vec<_>>();
 
     let gradient_solver = NeuraForwardForward::new(Tanh, 0.5);
-    let mut trainer = NeuraBatchedTrainer::new(0.01, 200);
+    let mut trainer = NeuraBatchedTrainer::new().learning_rate(0.01).iterations(0);
     trainer.batch_size = 256;
 
     for _epoch in 0..EPOCHS {

@@ -202,7 +202,9 @@ mod test {
 
         let solver = NeuraForwardForward::new(Tanh, 0.25);
 
-        let trainer = NeuraBatchedTrainer::new(0.01, 20);
+        let trainer = NeuraBatchedTrainer::new()
+            .learning_rate(0.01)
+            .iterations(20);
 
         let inputs = (0..1).cycle().map(|_| {
             let mut rng = rand::thread_rng();

@@ -33,7 +33,7 @@ impl NeuraAxisBase for NeuraAxisDefault {
         if inputs.len() != 1 {
             Err(NeuraAxisErr::InvalidAmount(inputs.len(), 1, Some(1)))
         } else {
-            Ok(*inputs[0].borrow())
+            Ok(inputs[0])
         }
     }
 }

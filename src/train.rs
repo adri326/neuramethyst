@@ -44,14 +44,39 @@ impl Default for NeuraBatchedTrainer {
 }
 
 impl NeuraBatchedTrainer {
-    pub fn new(learning_rate: f64, iterations: usize) -> Self {
-        Self {
-            learning_rate,
-            iterations,
-            ..Default::default()
-        }
+    pub fn new() -> Self {
+        Self::default()
     }
 
+    pub fn batch_size(mut self, batch_size: usize) -> Self {
+        self.batch_size = batch_size;
+        self
+    }
+
+    pub fn learning_rate(mut self, learning_rate: f64) -> Self {
+        self.learning_rate = learning_rate;
+        self
+    }
+
+    pub fn iterations(mut self, iterations: usize) -> Self {
+        self.iterations = iterations;
+        self
+    }
+
+    pub fn log_iterations(mut self, log_iterations: usize) -> Self {
+        self.log_iterations = log_iterations;
+        self
+    }
+
+    pub fn epochs(mut self, epochs: usize, training_size: usize) -> Self {
+        if self.log_iterations == 0 {
+            self.log_iterations = (training_size / self.batch_size).max(1);
+            self.iterations = (training_size * epochs / self.batch_size).max(1);
+        }
+        self
+    }
+
+    #[deprecated]
     pub fn with_epochs(
         learning_rate: f64,
         epochs: usize,

@@ -45,7 +45,7 @@ fn main() {
 
     if std::env::args().any(|arg| arg == "draw") {
         for epoch in 0..200 {
-            let mut trainer = NeuraBatchedTrainer::new(0.03, 10);
+            let mut trainer = NeuraBatchedTrainer::new().learning_rate(0.03).iterations(0);
             trainer.batch_size = 10;
 
             trainer.train(
@@ -84,7 +84,9 @@ fn main() {
             std::thread::sleep(std::time::Duration::new(0, 50_000_000));
         }
     } else {
-        let mut trainer = NeuraBatchedTrainer::new(0.03, 20 * 50);
+        let mut trainer = NeuraBatchedTrainer::new()
+            .learning_rate(0.03)
+            .iterations(20 * 50);
         trainer.batch_size = 10;
         trainer.log_iterations = 20;
 
