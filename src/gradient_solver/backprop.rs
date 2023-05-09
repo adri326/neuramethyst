@@ -12,6 +12,10 @@ impl<Loss> NeuraBackprop<Loss> {
     pub fn new(loss: Loss) -> Self {
         Self { loss }
     }
+
+    pub fn get(&self) -> &Loss {
+        &self.loss
+    }
 }
 
 impl<

@@ -13,6 +13,9 @@ pub use partial::NeuraGraphPartial;
 mod from;
 pub use from::FromSequential;
 
+mod backprop;
+pub use backprop::NeuraGraphBackprop;
+
 #[derive(Debug)]
 pub struct NeuraGraphNodeConstructed<Data> {
     node: Box<dyn NeuraGraphNodeEval<Data>>,
@@ -47,19 +50,51 @@ pub struct NeuraGraph<Data> {
 }
 
 impl<Data: Clone + std::fmt::Debug + 'static> NeuraLayerBase for NeuraGraph<Data> {
-    type Gradient = ();
+    type Gradient = Vec<Box<dyn NeuraDynVectorSpace>>;
 
     fn output_shape(&self) -> NeuraShape {
         self.output_shape
     }
 
     fn default_gradient(&self) -> Self::Gradient {
-        unimplemented!("NeuraGraph cannot be used as a layer yet")
+        let mut res: Self::Gradient = Vec::with_capacity(self.buffer_size);
+
+        res.push(Box::new(()));
+
+        for node in self.nodes.iter() {
+            res.push(node.node.default_gradient());
+        }
+
+        res
+    }
+
+    fn apply_gradient(&mut self, gradient: &Self::Gradient) {
+        for (node, gradient) in self.nodes.iter_mut().zip(gradient.iter()) {
+            node.node.apply_gradient(gradient);
+        }
+    }
+
+    fn prepare_layer(&mut self, is_training: bool) {
+        for node in self.nodes.iter_mut() {
+            node.node.prepare(is_training);
+        }
+    }
+
+    fn regularize_layer(&self) -> Self::Gradient {
+        let mut res: Self::Gradient = Vec::with_capacity(self.buffer_size);
+
+        res.push(Box::new(()));
+
+        for node in self.nodes.iter() {
+            res.push(node.node.get_regularization_gradient());
+        }
+
+        res
     }
 }
 
 impl<Data> NeuraGraph<Data> {
-    fn create_buffer(&self) -> Vec<Option<Data>> {
+    fn create_buffer<T>(&self) -> Vec<Option<T>> {
         let mut res = Vec::with_capacity(self.buffer_size);
 
         for _ in 0..self.buffer_size {
@@ -90,77 +125,6 @@ impl<Data> NeuraGraph<Data> {
                 .collect();
             let result = node.node.eval(&inputs);
             buffer[node.output] = Some(result);
-        }
-    }
-
-    fn backprop_in<Loss, Target>(
-        &self,
-        input: &Data,
-        loss: Loss,
-        target: &Target,
-        output_buffer: &mut Vec<Option<Data>>,
-        backprop_buffer: &mut Vec<Option<Data>>,
-        intermediary_buffer: &mut Vec<Option<Box<dyn Any>>>,
-        gradient_buffer: &mut Vec<Box<dyn NeuraDynVectorSpace>>,
-    ) where
-        Data: Clone + std::ops::Add<Data, Output = Data>,
-        Loss: NeuraLoss<Data, Target = Target>,
-    {
-        assert!(output_buffer.len() >= self.nodes.len());
-        assert!(backprop_buffer.len() >= self.nodes.len());
-        assert!(intermediary_buffer.len() >= self.nodes.len());
-        assert!(gradient_buffer.len() >= self.nodes.len());
-
-        output_buffer[0] = Some(input.clone());
-
-        // Forward pass
-        for node in self.nodes.iter() {
-            // PERF: re-use the allocation for `inputs`, and `.take()` the elements only needed once?
-            let inputs: Vec<_> = node
-                .inputs
-                .iter()
-                .map(|&i| {
-                    output_buffer[i]
-                        .clone()
-                        .expect("Unreachable: output of previous layer was not set")
-                })
-                .collect();
-            let (result, intermediary) = node.node.eval_training(&inputs);
-
-            output_buffer[node.output] = Some(result);
-            intermediary_buffer[node.output] = Some(intermediary);
-        }
-
-        let loss = loss.nabla(
-            target,
-            output_buffer[self.output_index]
-                .as_ref()
-                .expect("Unreachable: output was not set"),
-        );
-        backprop_buffer[self.output_index] = Some(loss);
-
-        // Backward pass
-        for node in self.nodes.iter().rev() {
-            let Some(epsilon_in) = backprop_buffer[node.output].take() else {
-                continue
-            };
-
-            let epsilon_out = node
-                .node
-                .backprop(&intermediary_buffer[node.output], &epsilon_in);
-            let gradient = node
-                .node
-                .get_gradient(&intermediary_buffer[node.output], &epsilon_in);
-
-            gradient_buffer[node.output].add_assign(&*gradient);
-
-            for (&input, epsilon) in node.inputs.iter().zip(epsilon_out.into_iter()) {
-                if let Some(existing_gradient) = backprop_buffer[input].take() {
-                    backprop_buffer[input] = Some(existing_gradient + epsilon);
-                } else {
-                    backprop_buffer[input] = Some(epsilon);
-                }
-            }
         }
     }
 }

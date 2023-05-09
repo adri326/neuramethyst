@@ -14,12 +14,10 @@ pub trait NeuraVectorSpace {
 
     fn mul_assign(&mut self, by: f64);
 
-    // fn zero() -> Self;
-
     fn norm_squared(&self) -> f64;
 }
 
-pub trait NeuraDynVectorSpace {
+pub trait NeuraDynVectorSpace: Send {
     fn add_assign(&mut self, other: &dyn NeuraDynVectorSpace);
 
     fn mul_assign(&mut self, by: f64);
@@ -30,9 +28,9 @@ pub trait NeuraDynVectorSpace {
     fn into_any(&self) -> &dyn Any;
 }
 
-impl<T: NeuraVectorSpace + 'static> NeuraDynVectorSpace for T {
+impl<T: NeuraVectorSpace + Send + 'static> NeuraDynVectorSpace for T {
     fn add_assign(&mut self, other: &dyn NeuraDynVectorSpace) {
-        let Some(other) = other.into_any().downcast_ref::<Self>() else {
+        let Some(other) = other.into_any().downcast_ref::<T>() else {
             panic!("Incompatible operand: expected other to be equal to self");
         };
 
@@ -63,17 +61,12 @@ impl NeuraVectorSpace for () {
         // Noop
     }
 
-    // #[inline(always)]
-    // fn zero() -> Self {
-    //     ()
-    // }
-
     fn norm_squared(&self) -> f64 {
         0.0
     }
 }
 
-impl<T: NeuraVectorSpace> NeuraVectorSpace for Box<T> {
+impl<T: NeuraVectorSpace + ?Sized> NeuraVectorSpace for Box<T> {
     fn add_assign(&mut self, other: &Self) {
         self.as_mut().add_assign(other.as_ref());
     }
@@ -82,12 +75,22 @@ impl<T: NeuraVectorSpace> NeuraVectorSpace for Box<T> {
         self.as_mut().mul_assign(by);
     }
 
-    // fn zero() -> Self {
-    //     Box::new(T::zero())
-    // }
-
     fn norm_squared(&self) -> f64 {
         self.as_ref().norm_squared()
+    }
+}
+
+impl NeuraVectorSpace for dyn NeuraDynVectorSpace {
+    fn add_assign(&mut self, other: &Self) {
+        <dyn NeuraDynVectorSpace>::add_assign(self, &*other)
+    }
+
+    fn mul_assign(&mut self, by: f64) {
+        <dyn NeuraDynVectorSpace>::mul_assign(self, by)
+    }
+
+    fn norm_squared(&self) -> f64 {
+        <dyn NeuraDynVectorSpace>::norm_squared(self)
     }
 }
 
@@ -124,21 +127,34 @@ impl<const N: usize, T: NeuraVectorSpace + Clone> NeuraVectorSpace for [T; N] {
         }
     }
 
-    // fn zero() -> Self {
-    //     let mut res: Vec<T> = Vec::with_capacity(N);
-
-    //     for _ in 0..N {
-    //         res.push(T::zero());
-    //     }
-
-    //     res.try_into().unwrap_or_else(|_| {
-    //         // TODO: check that this panic is optimized away
-    //         unreachable!()
-    //     })
-    // }
-
     fn norm_squared(&self) -> f64 {
         self.iter().map(T::norm_squared).sum()
+    }
+}
+
+impl<T: NeuraVectorSpace> NeuraVectorSpace for Vec<T> {
+    fn add_assign(&mut self, other: &Self) {
+        assert_eq!(self.len(), other.len());
+
+        for (self_item, other_item) in self.iter_mut().zip(other.iter()) {
+            self_item.add_assign(other_item);
+        }
+    }
+
+    fn mul_assign(&mut self, by: f64) {
+        for item in self.iter_mut() {
+            item.mul_assign(by);
+        }
+    }
+
+    fn norm_squared(&self) -> f64 {
+        let mut res = 0.0;
+
+        for item in self.iter() {
+            res += item.norm_squared();
+        }
+
+        res
     }
 }
 

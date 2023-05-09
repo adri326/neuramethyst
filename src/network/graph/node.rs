@@ -24,13 +24,20 @@ pub trait NeuraGraphNodeEval<Data>: DynClone + Debug {
 
     fn eval_training(&self, inputs: &[Data]) -> (Data, Box<dyn Any>);
     fn backprop(&self, intermediary: &dyn Any, epsilon_in: &Data) -> Vec<Data>;
+
+    fn default_gradient(&self) -> Box<dyn NeuraDynVectorSpace>;
+
     fn get_gradient(
         &self,
         intermediary: &dyn Any,
         epsilon_in: &Data,
     ) -> Box<dyn NeuraDynVectorSpace>;
 
+    fn get_regularization_gradient(&self) -> Box<dyn NeuraDynVectorSpace>;
+
     fn apply_gradient(&mut self, gradient: &dyn NeuraDynVectorSpace);
+
+    fn prepare(&mut self, is_training: bool);
 }
 
 #[derive(Clone, Debug)]
@@ -156,6 +163,18 @@ impl<Data: Clone, Axis: NeuraAxis<Data>, Layer: NeuraLayer<Axis::Combined, Outpu
                 .downcast_ref::<Layer::Gradient>()
                 .expect("Invalid gradient type passed to NeuraGraphNode::apply_gradient"),
         );
+    }
+
+    fn default_gradient(&self) -> Box<dyn NeuraDynVectorSpace> {
+        Box::new(self.layer.default_gradient())
+    }
+
+    fn prepare(&mut self, is_training: bool) {
+        self.layer.prepare_layer(is_training);
+    }
+
+    fn get_regularization_gradient(&self) -> Box<dyn NeuraDynVectorSpace> {
+        Box::new(self.layer.regularize_layer())
     }
 }
 
