@@ -51,7 +51,7 @@ impl<R: Rng + Clone + std::fmt::Debug + 'static> NeuraLayerBase for NeuraDropout
     type Gradient = ();
 
     fn default_gradient(&self) -> Self::Gradient {
-        ()
+        
     }
 
     fn output_shape(&self) -> NeuraShape {

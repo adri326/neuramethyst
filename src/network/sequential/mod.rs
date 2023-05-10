@@ -70,7 +70,7 @@ impl<Layer, ChildNetwork> NeuraSequential<Layer, ChildNetwork> {
         Layer: NeuraLayer<Input>,
     {
         NeuraSequential {
-            layer: layer,
+            layer,
             child_network: Box::new(self),
         }
     }
@@ -80,7 +80,7 @@ impl<Layer> From<Layer> for NeuraSequential<Layer, NeuraSequentialLast> {
     fn from(layer: Layer) -> Self {
         Self {
             layer,
-            child_network: Box::new(NeuraSequentialLast::default()),
+            child_network: Box::<NeuraSequentialLast>::default(),
         }
     }
 }

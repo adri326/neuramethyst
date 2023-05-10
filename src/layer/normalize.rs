@@ -41,7 +41,7 @@ impl NeuraLayerBase for NeuraNormalizeLayer {
     type Gradient = ();
 
     fn default_gradient(&self) -> Self::Gradient {
-        ()
+        
     }
 }
 

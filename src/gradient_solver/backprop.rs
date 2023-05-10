@@ -44,7 +44,7 @@ where
     }
 
     fn score(&self, trainable: &Trainable, input: &Input, target: &Target) -> f64 {
-        let output = trainable.eval(&input);
+        let output = trainable.eval(input);
         self.loss.eval(target, &output).to_f64().unwrap()
     }
 }

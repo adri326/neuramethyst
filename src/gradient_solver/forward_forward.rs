@@ -129,8 +129,8 @@ trait ForwardForwardRecurse<Input, Network, Gradient> {
 
 impl<Act, Input> ForwardForwardRecurse<Input, (), ()> for NeuraForwardPair<Act> {
     #[inline(always)]
-    fn recurse(&self, _network: &(), _input: &Input) -> () {
-        ()
+    fn recurse(&self, _network: &(), _input: &Input) {
+        
     }
 }
 

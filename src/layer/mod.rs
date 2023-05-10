@@ -189,7 +189,7 @@ impl NeuraLayerBase for () {
 
     #[inline(always)]
     fn default_gradient(&self) -> Self::Gradient {
-        ()
+        
     }
 
     #[inline(always)]

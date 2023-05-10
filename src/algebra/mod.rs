@@ -82,7 +82,7 @@ impl<T: NeuraVectorSpace + ?Sized> NeuraVectorSpace for Box<T> {
 
 impl NeuraVectorSpace for dyn NeuraDynVectorSpace {
     fn add_assign(&mut self, other: &Self) {
-        <dyn NeuraDynVectorSpace>::add_assign(self, &*other)
+        <dyn NeuraDynVectorSpace>::add_assign(self, other)
     }
 
     fn mul_assign(&mut self, by: f64) {

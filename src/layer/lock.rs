@@ -32,7 +32,7 @@ impl<Layer: NeuraLayerBase> NeuraLayerBase for NeuraLockLayer<Layer> {
     }
 
     fn default_gradient(&self) -> Self::Gradient {
-        ()
+        
     }
 
     fn prepare_layer(&mut self, is_training: bool) {

@@ -123,10 +123,10 @@ impl NeuraBatchedTrainer {
 
             for _ in 0..self.batch_size {
                 if let Some((input, target)) = iter.next() {
-                    let gradient = gradient_solver.get_gradient(&network, &input, &target);
+                    let gradient = gradient_solver.get_gradient(network, &input, &target);
                     gradient_sum.add_assign(&gradient);
 
-                    train_loss += gradient_solver.score(&network, &input, &target);
+                    train_loss += gradient_solver.score(network, &input, &target);
                 } else {
                     break 'd;
                 }
@@ -151,7 +151,7 @@ impl NeuraBatchedTrainer {
                 network.prepare_layer(false);
                 let mut val_loss = 0.0;
                 for (input, target) in test_inputs {
-                    val_loss += gradient_solver.score(&network, input, target);
+                    val_loss += gradient_solver.score(network, input, target);
                 }
                 val_loss /= test_inputs.len() as f64;
                 train_loss /= (self.batch_size * self.log_iterations) as f64;

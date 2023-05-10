@@ -34,7 +34,7 @@ impl<const LENGTH: usize, F> NeuraVector<LENGTH, F> {
         LENGTH
     }
 
-    pub fn iter<'a>(&'a self) -> std::slice::Iter<'a, F> {
+    pub fn iter(&self) -> std::slice::Iter<'_, F> {
         self.data.iter()
     }
 }

@@ -2,6 +2,7 @@ use super::*;
 
 /// Last element of a NeuraSequential network
 #[derive(Clone, Debug, PartialEq, Copy)]
+#[derive(Default)]
 pub struct NeuraSequentialLast {
     shape: Option<NeuraShape>,
 }
@@ -28,7 +29,7 @@ impl NeuraLayerBase for NeuraSequentialLast {
 
     #[inline(always)]
     fn default_gradient(&self) -> Self::Gradient {
-        ()
+        
     }
 }
 
@@ -116,11 +117,7 @@ impl<Input: Clone> NeuraNetwork<Input> for NeuraSequentialLast {
     }
 }
 
-impl Default for NeuraSequentialLast {
-    fn default() -> Self {
-        Self { shape: None }
-    }
-}
+
 
 /// Operations on the tail end of a sequential network
 pub trait NeuraSequentialTail {
@@ -146,7 +143,7 @@ impl<Layer> NeuraSequentialTail for NeuraSequential<Layer, NeuraSequentialLast> 
             layer: self.layer,
             child_network: Box::new(NeuraSequential {
                 layer,
-                child_network: Box::new(NeuraSequentialLast::default()),
+                child_network: Box::<NeuraSequentialLast>::default(),
             }),
         }
     }

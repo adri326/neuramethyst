@@ -68,7 +68,7 @@ where
         epsilon: &Self::Output,
     ) -> Self::Gradient {
         self.layers
-            .get_gradient(&self.input_to_residual_input(input), intermediary, &epsilon)
+            .get_gradient(&self.input_to_residual_input(input), intermediary, epsilon)
     }
 
     fn backprop_layer(
@@ -79,7 +79,7 @@ where
     ) -> Data {
         unwrap_or_clone(
             self.layers
-                .backprop_layer(&self.input_to_residual_input(input), intermediary, &epsilon)
+                .backprop_layer(&self.input_to_residual_input(input), intermediary, epsilon)
                 .get_first()
                 .unwrap(),
         )

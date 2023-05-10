@@ -69,7 +69,7 @@ impl NeuraLayerBase for NeuraIsolateLayer {
 
     #[inline(always)]
     fn default_gradient(&self) -> Self::Gradient {
-        ()
+        
     }
 
     fn output_shape(&self) -> NeuraShape {
@@ -87,7 +87,7 @@ impl<F: Clone + Scalar + Default> NeuraLayer<DVector<F>> for NeuraIsolateLayer {
             panic!("NeuraIsolateLayer expected a value of dimension {}, got a vector", self.start.dims());
         };
 
-        let res = DVector::from_iterator(end - start, input.iter().cloned().skip(start).take(end));
+        let res = DVector::from_iterator(end - start, input.iter().skip(start).cloned().take(end));
 
         (res, ())
     }

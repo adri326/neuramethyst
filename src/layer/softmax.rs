@@ -33,7 +33,7 @@ impl NeuraLayerBase for NeuraSoftmaxLayer {
     }
 
     fn default_gradient(&self) -> Self::Gradient {
-        ()
+        
     }
 }
 
@@ -76,7 +76,7 @@ impl<F: Float + Scalar + NumAssignOps> NeuraLayer<DVector<F>> for NeuraSoftmaxLa
         let mut epsilon = epsilon.clone();
 
         // Compute $a_{l-1,i} ° \epsilon_{l,i}$
-        hadamard_product(&mut epsilon, &evaluated);
+        hadamard_product(&mut epsilon, evaluated);
 
         // Compute $\sum_{k}{a_{l-1,k} \epsilon_{l,k}}$
         let sum_diagonal_terms = epsilon.sum();

@@ -59,7 +59,7 @@ impl NeuraAxisBase for NeuraAxisAppend {
     type Err = NeuraAxisErr;
 
     fn shape(&self, inputs: &[NeuraShape]) -> Result<NeuraShape, NeuraAxisErr> {
-        let mut inputs = inputs.into_iter().map(|x| *x.borrow());
+        let mut inputs = inputs.iter().map(|x| *x.borrow());
         if let Some(mut res) = inputs.next() {
             for operand in inputs {
                 match (res, operand) {
@@ -82,7 +82,7 @@ impl<F: Clone + Default + Scalar> NeuraAxis<DVector<F>> for NeuraAxisAppend {
     type Combined = DVector<F>;
 
     fn combine(&self, inputs: &[impl Borrow<DVector<F>>]) -> Self::Combined {
-        assert!(inputs.len() > 0);
+        assert!(!inputs.is_empty());
         let mut res = Vec::with_capacity(inputs.iter().map(|vec| vec.borrow().len()).sum());
 
         for input in inputs {

@@ -67,7 +67,7 @@ impl NeuraLayerBase for NeuraResidualLast {
     type Gradient = ();
 
     fn default_gradient(&self) -> Self::Gradient {
-        ()
+        
     }
 
     fn output_shape(&self) -> NeuraShape {
@@ -98,7 +98,7 @@ impl NeuraNetworkRec for NeuraResidualLast {
     where
         Self::Layer: NeuraLayerBase,
     {
-        ()
+        
     }
 }
 
@@ -147,8 +147,7 @@ impl<Data: Clone> NeuraLayer<NeuraResidualInput<Data>> for NeuraResidualLast {
 
     fn eval_training(&self, input: &NeuraResidualInput<Data>) -> (Self::Output, ()) {
         let result: Rc<Self::Output> = input.clone().get_first()
-            .expect("Invalid NeuraResidual state: network returned no data, did you forget to link the last layer?")
-            .into();
+            .expect("Invalid NeuraResidual state: network returned no data, did you forget to link the last layer?");
 
         (unwrap_or_clone(result), ())
     }

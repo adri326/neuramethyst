@@ -19,7 +19,7 @@ impl<Data> FromSequential<NeuraSequentialLast, Data> for NeuraGraph<Data> {
         Self {
             output_index: nodes.len(),
             buffer_size: nodes.len() + 1,
-            nodes: nodes,
+            nodes,
             output_shape: input_shape,
         }
     }

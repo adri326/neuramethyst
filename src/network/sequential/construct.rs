@@ -24,13 +24,13 @@ impl<Layer: NeuraPartialLayer, ChildNetwork: NeuraPartialLayer> NeuraPartialLaye
         let layer = self
             .layer
             .construct(input_shape)
-            .map_err(|e| NeuraRecursiveErr::Current(e))?;
+            .map_err(NeuraRecursiveErr::Current)?;
 
         // TODO: ensure that this operation (and all recursive operations) are directly allocated on the heap
         let child_network = self
             .child_network
             .construct(layer.output_shape())
-            .map_err(|e| NeuraRecursiveErr::Child(e))?;
+            .map_err(NeuraRecursiveErr::Child)?;
         let child_network = Box::new(child_network);
 
         Ok(NeuraSequential {

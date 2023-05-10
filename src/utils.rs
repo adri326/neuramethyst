@@ -26,7 +26,7 @@ impl<J: Iterator> Iterator for Chunked<J> {
             }
         }
 
-        if result.len() > 0 {
+        if !result.is_empty() {
             Some(result)
         } else {
             None
@@ -54,8 +54,8 @@ where
         if let Some(next) = self.iter.next() {
             // Base iterator is not empty yet
             self.buffer.push(next.clone());
-            return Some(next);
-        } else if self.buffer.len() > 0 {
+            Some(next)
+        } else if !self.buffer.is_empty() {
             if self.index == 0 {
                 // Shuffle the vector and return the first element, setting the index to 1
                 self.buffer.shuffle(&mut self.rng);

@@ -75,10 +75,9 @@ impl<Input, Layer: NeuraLayer<Input>, ChildNetwork: NeuraLayer<Layer::Output>> N
         let transient_epsilon =
             self.child_network
                 .backprop_layer(&transient_output, &intermediary.1, incoming_epsilon);
-        let outgoing_epsilon =
-            self.layer
-                .backprop_layer(input, &intermediary.0, &transient_epsilon);
+        
 
-        outgoing_epsilon
+        self.layer
+                .backprop_layer(input, &intermediary.0, &transient_epsilon)
     }
 }

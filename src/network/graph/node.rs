@@ -10,8 +10,8 @@ use crate::{
 use super::*;
 
 pub trait NeuraGraphNodePartial<Data>: DynClone + Debug {
-    fn inputs<'a>(&'a self) -> &'a [String];
-    fn name<'a>(&'a self) -> &'a str;
+    fn inputs(&self) -> &[String];
+    fn name(&self) -> &str;
 
     fn construct(
         &self,
@@ -112,7 +112,7 @@ where
 impl<Data: Clone, Axis: NeuraAxis<Data>, Layer: NeuraLayer<Axis::Combined, Output = Data>>
     NeuraGraphNodeEval<Data> for NeuraGraphNode<Axis, Layer>
 {
-    fn eval<'a>(&'a self, inputs: &[Data]) -> Data {
+    fn eval(&self, inputs: &[Data]) -> Data {
         let combined = self.axis.combine(inputs);
         self.layer.eval(&combined)
     }
@@ -184,11 +184,11 @@ where
     Layer::Constructed: NeuraLayer<Axis::Combined, Output = Data>,
     Layer::Err: Debug,
 {
-    fn inputs<'a>(&'a self) -> &'a [String] {
+    fn inputs(&self) -> &[String] {
         &self.inputs
     }
 
-    fn name<'a>(&'a self) -> &'a str {
+    fn name(&self) -> &str {
         &self.name
     }
 

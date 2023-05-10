@@ -44,7 +44,7 @@ impl<Layer: NeuraPartialLayer, ChildNetwork: NeuraResidualConstruct, Axis: Neura
             .map_err(|e| NeuraRecursiveErr::Current(Layer(e)))?;
         let layer_shape = Rc::new(layer.output_shape());
 
-        if self.offsets.len() == 0 {
+        if self.offsets.is_empty() {
             return Err(NeuraRecursiveErr::Current(NoOutput));
         }
 
@@ -63,7 +63,7 @@ impl<Layer: NeuraPartialLayer, ChildNetwork: NeuraResidualConstruct, Axis: Neura
         let child_network = self
             .child_network
             .construct_residual(rest_inputs, rest_indices, current_index + 1)
-            .map_err(|e| NeuraRecursiveErr::Child(e))?;
+            .map_err(NeuraRecursiveErr::Child)?;
 
         Ok(NeuraResidualNode {
             layer,

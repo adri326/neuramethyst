@@ -169,7 +169,7 @@ impl<Data: Clone + std::fmt::Debug + 'static> NeuraPartialLayer for NeuraGraphPa
 
             let (constructed, output_shape) = node
                 .construct(input_shapes)
-                .map_err(|e| NeuraGraphErr::LayerErr(e))?;
+                .map_err(NeuraGraphErr::LayerErr)?;
 
             shapes[index] = Some(output_shape);
 

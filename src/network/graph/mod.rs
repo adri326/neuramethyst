@@ -28,7 +28,7 @@ impl<Data> Clone for NeuraGraphNodeConstructed<Data> {
         Self {
             node: dyn_clone::clone_box(&*self.node),
             inputs: self.inputs.clone(),
-            output: self.output.clone(),
+            output: self.output,
         }
     }
 }
